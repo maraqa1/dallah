@@ -1,31 +1,41 @@
+# modules/taskInputModule.R
+
 taskInputUI <- function(id) {
   ns <- NS(id)
   
   fluidPage(
     h3("Task Management"),
+    br(),
     
-    radioButtons(ns("dataSource"), "Step 1: Choose Data Source:",
-                 choices = c("Upload File" = "upload",
-                             "Local File" = "local",
-                             "Google Sheet" = "google"),
-                 selected = "upload",
-                 inline = TRUE),
-    
-    # Dynamic Help Text
-    uiOutput(ns("sourceInstructions")),
+    fluidRow(
+      column(12,
+             radioButtons(ns("dataSource"), "Step 1: Choose Data Source:",
+                          choices = c("Google Sheet" = "google",
+                                      "Local File" = "local",
+                                      "Upload File" = "upload"),
+                          selected = "google",
+                          inline = TRUE),
+             uiOutput(ns("sourceInstructions"))
+      )
+    ),
     
     fluidRow(
       conditionalPanel(
         condition = sprintf("input['%s'] == 'upload'", ns("dataSource")),
-        column(6, fileInput(ns("fileUpload"), "Step 2: Upload Smartsheet File (.csv or .xlsx)", accept = c(".csv", ".xlsx")))
-      ),
-      
-      column(6, actionButton(ns("loadData"), "Step 3: Load Data", class = "btn-primary")),
-      column(6, actionButton(ns("clearData"), "Clear All Tasks", class = "btn-danger"))
+        column(12,
+               fileInput(ns("fileUpload"), "Step 2: Upload Smartsheet File (.csv or .xlsx)", accept = c(".csv", ".xlsx"))
+        )
+      )
+    ),
+    
+    fluidRow(
+      column(6, actionButton(ns("loadData"), "Step 3: Load Data", class = "btn-primary btn-block")),
+      column(6, actionButton(ns("clearData"), "Clear All Tasks", class = "btn-danger btn-block"))
     ),
     
     hr(),
     h3("Add / Edit Task"),
+    br(),
     
     fluidRow(
       column(4, textInput(ns("taskName"), "Initiative Name (Primary)")),
@@ -41,113 +51,89 @@ taskInputUI <- function(id) {
     ),
     
     fluidRow(
-      column(4, actionButton(ns("addTask"), "Add Task", class = "btn-success")),
-      column(4, actionButton(ns("updateTask"), "Update Selected Task", class = "btn-primary")),
-      column(4, actionButton(ns("deleteTask"), "Delete Selected Task", class = "btn-danger"))
+      column(4, actionButton(ns("addTask"), "Add Task", class = "btn-success btn-block")),
+      column(4, actionButton(ns("updateTask"), "Update Selected Task", class = "btn-primary btn-block")),
+      column(4, actionButton(ns("deleteTask"), "Delete Selected Task", class = "btn-danger btn-block"))
     ),
     
     hr(),
     h3("Task Preview Table"),
+    br(),
+    
     dataTableOutput(ns("previewTable"))
   )
 }
 
-
 taskInputServer <- function(id, task_data) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
-    # --- INITIAL LOAD: Try Google, then Local, then wait for Upload ---
+    
+    # --- Auto-Load from Google on Startup ---
     observe({
       df <- NULL
-      
-      # Try Google first
       tryCatch({
         googlesheets4::gs4_deauth()
         sheet_id <- "1cvemCZnWoeq_OCKKs379Jrjt34NfKfm5RRNllaMvqf4"
         df <- googlesheets4::read_sheet(sheet_id)
         
-        # Rename Task to Primary
         if ("Task" %in% colnames(df)) {
           df <- df %>% dplyr::rename(Primary = Task)
         }
         
-        # Filter only Initiative rows
         df <- df %>%
           dplyr::filter(grepl("^Initiative [0-9]+:", Primary))
         
-        showNotification("✅ Data loaded successfully from Google.", type = "message")
+        df$`% Complete` <- readr::parse_number(as.character(df$`% Complete`)) / 1
+        df$Progress <- df$`% Complete`
+        
+        task_data(df)
+        
+        showNotification("✅ Auto-loaded data from Google successfully!", type = "message")
         
       }, error = function(e) {
-        # If Google fails, try Local
-        showNotification("⚠️ Failed to load from Google. Trying Local file...", type = "warning")
-        
-        if (file.exists("./data/Stage_report.xlsx")) {
-          df <- readxl::read_excel("./data/Stage_report.xlsx")
-          
-          df$`% Complete` <- readr::parse_number(as.character(df$`% Complete`)) / 1
-          df$Progress <- df$`% Complete`
-          
-          showNotification("✅ Data loaded successfully from Local File.", type = "message")
-        } else {
-          showNotification("❌ Local file not found. Please upload manually.", type = "error")
-        }
+        showNotification("⚠️ Auto-load from Google failed. Please load manually.", type = "warning")
       })
-      
-      if (!is.null(df)) {
-        task_data(df)
-      }
     })
     
     
-    
-    
-    # Set paths
+    # File paths
     local_file_path <- "./data/Stage_report.xlsx"
-    google_sheet_url <- "https://docs.google.com/spreadsheets/d/1cvemCZnWoeq_OCKKs379Jrjt34NfKfm5RRNllaMvqf4/edit?usp=sharing"
+    google_sheet_id <- "1cvemCZnWoeq_OCKKs379Jrjt34NfKfm5RRNllaMvqf4"
     
     # Columns expected
     required_cols <- c("Primary", "Assigned To", "% Complete", "Health", "Status",
                        "Active Phase", "Start Date", "Wave", "Code", "short name", "tier", "Program")
     
-    #✅ Dynamically displays the correct guidance for the user depending on the selection.
-    
+    # --- Step Instructions ---
     output$sourceInstructions <- renderUI({
       req(input$dataSource)
       
-      if (input$dataSource == "upload") {
-        helpText("➡️ Please upload a .csv or .xlsx Smartsheet file, then click 'Load Data'.")
-      } else if (input$dataSource == "local") {
-        helpText("➡️ System will load from local file './data/Stage_report.xlsx'. Simply click 'Load Data'.")
-      } else if (input$dataSource == "google") {
-        helpText("➡️ System will load from the public Google Sheet. Make sure your sheet is shared publicly.")
-      } else {
-        NULL
-      }
+      switch(input$dataSource,
+             "upload" = helpText("➡️ Upload a .csv or .xlsx Smartsheet file."),
+             "local" = helpText("➡️ Will load from './data/Stage_report.xlsx'. Ensure the file exists."),
+             "google" = helpText("➡️ Will load from the public Google Sheet shared link."),
+             NULL)
     })
     
-    
-    
-    # --- Load Data ---
-    
+    # --- Load Data Button ---
     observeEvent(input$loadData, {
       req(input$dataSource)
-      source_choice <- input$dataSource
       df <- NULL
       
-      if (source_choice == "upload") {
+      if (input$dataSource == "upload") {
         req(input$fileUpload)
         
         ext <- tools::file_ext(input$fileUpload$name)
-        if (ext == "csv") {
-          df <- read.csv(input$fileUpload$datapath, stringsAsFactors = FALSE, check.names = FALSE)
+        df <- if (ext == "csv") {
+          read.csv(input$fileUpload$datapath, stringsAsFactors = FALSE, check.names = FALSE)
         } else if (ext %in% c("xlsx", "xls")) {
-          df <- readxl::read_excel(input$fileUpload$datapath)
+          readxl::read_excel(input$fileUpload$datapath)
         } else {
-          showNotification("❌ Unsupported file format. Only CSV and Excel supported.", type = "error")
+          showNotification("❌ Unsupported file format.", type = "error")
           return()
         }
         
-      } else if (source_choice == "local") {
+      } else if (input$dataSource == "local") {
         if (file.exists(local_file_path)) {
           df <- readxl::read_excel(local_file_path)
         } else {
@@ -155,36 +141,26 @@ taskInputServer <- function(id, task_data) {
           return()
         }
         
-      } else if (source_choice == "google") {
-          tryCatch({
-            googlesheets4::gs4_deauth()
-            sheet_id <- "1cvemCZnWoeq_OCKKs379Jrjt34NfKfm5RRNllaMvqf4"
-            df <- googlesheets4::read_sheet(sheet_id) #%>%
-            
-            # Rename Task to Primary to match local format
-            if ("Task" %in% colnames(df)) {
-              df <- df %>% dplyr::rename(Primary = Task)
-            }
-            
-            # Filter only initiatives
-            df <- df %>%
-              dplyr::filter(grepl("^Initiative [0-9]+:", Primary))
-            
-  
-          }, error = function(e) {
-            showNotification(paste("❌ Google Sheet load error:", e$message), type = "error")
-            df <- NULL
-          })
-        
-        
-        
-        #-----
-        
-        
+      } else if (input$dataSource == "google") {
+        tryCatch({
+          googlesheets4::gs4_deauth()
+          df <- googlesheets4::read_sheet(google_sheet_id)
+          
+          if ("Task" %in% colnames(df)) {
+            df <- df %>% dplyr::rename(Primary = Task)
+          }
+          
+          df <- df %>%
+            dplyr::filter(grepl("^Initiative [0-9]+:", Primary))
+          
+        }, error = function(e) {
+          showNotification(paste("❌ Google Sheet load error:", e$message), type = "error")
+          df <- NULL
+        })
       }
       
+      # Final validation
       if (!is.null(df)) {
-        # Check if required columns exist
         missing_cols <- setdiff(required_cols, colnames(df))
         if (length(missing_cols) > 0) {
           showNotification(paste("❌ Missing columns:", paste(missing_cols, collapse = ", ")), type = "error")
@@ -195,14 +171,13 @@ taskInputServer <- function(id, task_data) {
         df$Progress <- df$`% Complete`
         
         task_data(df)
-        showNotification(paste("✅ Loaded tasks from", source_choice), type = "message")
+        showNotification("✅ Data loaded successfully.", type = "message")
       }
     })
     
-    # --- Add Task ---
+    # --- Add / Update / Delete Tasks ---
     observeEvent(input$addTask, {
       req(task_data())
-      
       new_task <- data.frame(
         Primary = input$taskName,
         `Assigned To` = input$assignee,
@@ -220,29 +195,11 @@ taskInputServer <- function(id, task_data) {
         stringsAsFactors = FALSE
       )
       
-      missing_cols <- setdiff(names(task_data()), names(new_task))
-      for (col in missing_cols) {
-        new_task[[col]] <- NA
-      }
-      
-      task_data(rbind(task_data(), new_task[, names(task_data()), drop = FALSE]))
+      new_task <- new_task[, names(task_data()), drop = FALSE]
+      task_data(rbind(task_data(), new_task))
       showNotification("✅ Task added!", type = "message")
     })
     
-    # --- Populate form when selecting a row ---
-    observeEvent(input$previewTable_rows_selected, {
-      req(input$previewTable_rows_selected)
-      row <- task_data()[input$previewTable_rows_selected, ]
-      
-      updateTextInput(session, "taskName", value = row$Primary)
-      updateTextInput(session, "projectTitle", value = row$`short name`)
-      updateSelectInput(session, "projectPhase", selected = row$`Active Phase`)
-      updateSelectInput(session, "status", selected = row$Status)
-      updateTextInput(session, "assignee", value = row$`Assigned To`)
-      updateDateInput(session, "startDate", value = as.Date(row$`Start Date`))
-    })
-    
-    # --- Update Task ---
     observeEvent(input$updateTask, {
       req(input$previewTable_rows_selected)
       df <- task_data()
@@ -268,7 +225,6 @@ taskInputServer <- function(id, task_data) {
       showNotification("✅ Task updated!", type = "message")
     })
     
-    # --- Clear All Tasks ---
     observeEvent(input$clearData, {
       task_data(data.frame(
         Primary = character(),
@@ -289,13 +245,12 @@ taskInputServer <- function(id, task_data) {
       showNotification("⚠️ All tasks cleared.", type = "warning")
     })
     
-    # --- Delete Task ---
     observeEvent(input$deleteTask, {
       req(input$previewTable_rows_selected)
       
       showModal(modalDialog(
-        title = "Delete Task",
-        "Are you sure you want to delete this task?",
+        title = "Confirm Deletion",
+        "Are you sure you want to delete the selected task?",
         footer = tagList(
           modalButton("Cancel"),
           actionButton(ns("confirmDelete"), "Yes, Delete", class = "btn-danger")
@@ -305,17 +260,15 @@ taskInputServer <- function(id, task_data) {
     
     observeEvent(input$confirmDelete, {
       selected_row <- isolate(input$previewTable_rows_selected)
-      updated_data <- task_data()[-selected_row, , drop = FALSE]
-      task_data(updated_data)
-      
+      task_data(task_data()[-selected_row, , drop = FALSE])
       removeModal()
       showNotification("⚠️ Task deleted.", type = "warning")
     })
     
-    # --- Table Output ---
+    # --- Render Table ---
     output$previewTable <- renderDataTable({
       req(task_data())
-      datatable(task_data(), options = list(pageLength = 5, autoWidth = TRUE), selection = "single")
+      datatable(task_data(), options = list(pageLength = 5, scrollX = TRUE), selection = "single")
     })
   })
 }

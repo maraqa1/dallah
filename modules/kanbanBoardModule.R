@@ -1,24 +1,98 @@
-# Kanban Board Module UI
+# ─────────────────────────────────────────────────────────────
+# modules/kanbanBoardModule.R (Optimized for Desktop & Mobile)
+# ─────────────────────────────────────────────────────────────
+
 kanbanBoardUI <- function(id) {
   ns <- NS(id)
   fluidPage(
-    fluidRow(
-      column(3, tags$h4("Not Started", class = "text-center"), uiOutput(ns("notStartedColumn"))),
-      column(3, tags$h4("In Progress", class = "text-center"), uiOutput(ns("inProgressColumn"))),
-      column(3, tags$h4("Complete", class = "text-center"), uiOutput(ns("completeColumn"))),
-      column(3, tags$h4("Blocked", class = "text-center"), uiOutput(ns("blockedColumn")))
-    )
+    tags$head(
+      tags$style(HTML("
+        /* Column Header Styles */
+        .kanban-header {
+          background-color: #2E2D62;
+          color: white;
+          padding: 10px;
+          border-radius: 8px;
+          text-align: center;
+          font-weight: bold;
+          margin-bottom: 10px;
+          font-size: 18px;
+        }
+
+        /* Task Card Styles */
+        .task-card {
+          background-color: #ffffff;
+          border-radius: 8px;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+          margin-bottom: 15px;
+          padding: 10px;
+          transition: transform 0.2s;
+        }
+
+        .task-card:hover {
+          transform: scale(1.02);
+        }
+
+        /* Responsive Column Layout */
+        .kanban-column {
+          margin-bottom: 20px;
+        }
+
+        @media (min-width: 768px) {
+          .kanban-column {
+            width: 25%;
+            float: left;
+            padding: 0 10px;
+          }
+        }
+
+        @media (max-width: 767px) {
+          .kanban-column {
+            width: 100%;
+            padding: 0 5px;
+          }
+        }
+
+        /* Badge Style */
+        .badge {
+          display: inline-block;
+          padding: 5px 10px;
+          border-radius: 8px;
+          color: white;
+          font-weight: bold;
+          margin-bottom: 5px;
+          font-size: 12px;
+        }
+      "))
+    ),
+    
+    div(class = "row",
+        div(class = "kanban-column",
+            div(class = "kanban-header", "Not Started"),
+            uiOutput(ns("notStartedColumn"))
+        ),
+        div(class = "kanban-column",
+            div(class = "kanban-header", "In Progress"),
+            uiOutput(ns("inProgressColumn"))
+        ),
+        div(class = "kanban-column",
+            div(class = "kanban-header", "Complete"),
+            uiOutput(ns("completeColumn"))
+        ),
+        div(class = "kanban-column",
+            div(class = "kanban-header", "Blocked"),
+            uiOutput(ns("blockedColumn"))
+        )
+    ),
+    
+    div(style = "clear: both;") # To clear floats
   )
 }
 
-tags$h4("Not Started", style = "text-align: center; font-weight: bold;")
-
-
-# Kanban Board Module Server
 kanbanBoardServer <- function(input, output, session, tasks) {
   ns <- session$ns
-  library(lubridate)
   library(dplyr)
+  library(lubridate)
   
   normalize_status <- function(status) {
     status <- tolower(trimws(status))
@@ -27,11 +101,10 @@ kanbanBoardServer <- function(input, output, session, tasks) {
       status %in% c("complete", "completed", "done") ~ "Complete",
       status %in% c("in progress", "ongoing", "started", "working") ~ "In Progress",
       status %in% c("not started", "to do", "todo") ~ "Not Started",
-      TRUE ~ "Not Started"  # fallback
+      TRUE ~ "Not Started"
     )
   }
   
-  # Safely parse any date format
   safe_parse_date <- function(x) {
     x <- as.character(x)
     parsed <- suppressWarnings(mdy(x))
@@ -41,7 +114,6 @@ kanbanBoardServer <- function(input, output, session, tasks) {
     parsed
   }
   
-  # Render a single Kanban column with sorting by Health → Schedule → Progress
   renderTaskColumn <- function(status) {
     data <- tasks()
     if (nrow(data) == 0) return(h4("No tasks available."))
@@ -51,7 +123,6 @@ kanbanBoardServer <- function(input, output, session, tasks) {
     
     if (nrow(filtered) == 0) return(h4(paste("No tasks in", status, "column.")))
     
-    # --- Schedule Health Calculation (for sorting) ---
     filtered$schedule_health <- sapply(filtered$`Start Date`, function(start_date) {
       parsed_date <- safe_parse_date(start_date)
       if (is.na(parsed_date)) return("Unknown")
@@ -61,17 +132,16 @@ kanbanBoardServer <- function(input, output, session, tasks) {
       return("On Track")
     })
     
-    # --- Sorting Priorities ---
     filtered <- filtered %>%
       mutate(
-        Health_Score = dplyr::case_when(
+        Health_Score = case_when(
           Health == "Red" ~ 1,
           Health == "Amber" ~ 2,
           Health == "Green" ~ 3,
           Health == "Gray" ~ 4,
           TRUE ~ 5
         ),
-        Schedule_Score = dplyr::case_when(
+        Schedule_Score = case_when(
           schedule_health == "Overdue" ~ 1,
           schedule_health == "At Risk" ~ 2,
           schedule_health == "On Track" ~ 3,
@@ -81,11 +151,9 @@ kanbanBoardServer <- function(input, output, session, tasks) {
       ) %>%
       arrange(Health_Score, Schedule_Score, Progress_Score)
     
-    # --- Render task cards ---
     tagList(lapply(seq_len(nrow(filtered)), function(i) {
       task <- filtered[i, ]
       
-      # Fields (with fallback defaults)
       task_name <- ifelse(!is.na(task$Primary), task$Primary, "Unnamed Task")
       project_title <- ifelse(!is.na(task$`short name`), task$`short name`, "Untitled Project")
       project_phase <- ifelse(!is.na(task$`Active Phase`), task$`Active Phase`, "Not specified")
@@ -93,15 +161,10 @@ kanbanBoardServer <- function(input, output, session, tasks) {
       wave <- ifelse(!is.na(task$Wave), task$Wave, "Not specified")
       tier <- ifelse(!is.na(task$tier), task$tier, "Not specified")
       risk_level <- ifelse(!is.na(task$Health), task$Health, "Unknown")
-      
-      # Progress
       progress <- ifelse(!is.na(task$`% Complete`), task$`% Complete`, 0)
       progress_pct <- paste0(round(progress * 100), "%")
-      
-      # Schedule Health (already calculated)
       schedule_health <- task$schedule_health
       
-      # Colors
       schedule_color <- switch(schedule_health,
                                "On Track" = "green",
                                "At Risk" = "orange",
@@ -113,57 +176,50 @@ kanbanBoardServer <- function(input, output, session, tasks) {
                            "Green" = "green",
                            "Gray" = "gray",
                            "black")
+      
       bg_color <- switch(tier,
                          "Tier 1 - High Governance" = "#FFD6D6",
                          "Tier 2 - Medium Governance" = "#FFE7C9",
                          "Tier 3 - Low Governance" = "#D6FFD6",
                          "#F5F5F5")
       
-      # Task Card UI
       div(
         class = "task-card",
-        style = paste(
-          "background-color:", bg_color, ";",
-          "padding: 15px; margin-bottom: 15px; border-radius: 8px;",
-          "box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);"
-        ),
-        h4(paste(project_title, "-", project_phase), style = "margin-bottom: 10px; font-weight: bold;"),
-        h5(task_name, style = "margin-bottom: 10px; font-weight: bold;"),
-        p(paste("Assignee:", assignee), style = "margin: 5px 0;"),
-        p(paste("Wave:", wave), style = "margin: 5px 0;"),
+        style = paste("background-color:", bg_color, ";"),
+        
+        h5(paste(project_title, "-", project_phase), style = "margin-bottom: 8px; font-weight: bold; font-size: 14px;"),
+        h6(task_name, style = "margin-bottom: 8px;"),
+        
+        p(paste("👤", assignee), style = "margin: 4px 0; font-size: 12px;"),
+        p(paste("🌊 Wave:", wave), style = "margin: 4px 0; font-size: 12px;"),
+        
         div(
           class = "badge",
-          style = paste(
-            "display: inline-block; padding: 5px 10px; border-radius: 8px; margin-bottom: 5px;",
-            "background-color:", risk_color, "; color: white; font-weight: bold;"
-          ),
+          style = paste("background-color:", risk_color, ";"),
           paste("Health:", risk_level)
         ),
+        
         div(
           class = "badge",
-          style = paste(
-            "display: inline-block; padding: 5px 10px; border-radius: 8px; margin-bottom: 10px;",
-            "background-color:", schedule_color, "; color: white; font-weight: bold;"
-          ),
+          style = paste("background-color:", schedule_color, ";"),
           paste("Schedule:", schedule_health)
         ),
+        
         div(
           class = "progress",
-          style = "height: 15px; background-color: #f5f5f5; border-radius: 5px; overflow: hidden; margin-bottom: 5px;",
+          style = "height: 10px; background-color: #f0f0f0; border-radius: 5px; margin-top: 5px;",
           div(
             class = "progress-bar",
             style = paste0("width:", progress_pct, "; background-color: #007bff; height: 100%;")
           )
         ),
-        p(paste("Progress:", progress_pct), style = "font-size: 12px; color: #666;")
+        p(paste("Progress:", progress_pct), style = "font-size: 11px; color: #666; margin-top: 3px;")
       )
     }))
   }
-  
   
   output$notStartedColumn <- renderUI({ renderTaskColumn("Not Started") })
   output$inProgressColumn <- renderUI({ renderTaskColumn("In Progress") })
   output$completeColumn <- renderUI({ renderTaskColumn("Complete") })
   output$blockedColumn <- renderUI({ renderTaskColumn("Blocked") })
 }
-
