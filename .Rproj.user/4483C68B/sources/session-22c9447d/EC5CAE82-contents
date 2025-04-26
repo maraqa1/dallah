@@ -1,0 +1,547 @@
+library(ggplot2)
+library(dplyr)
+library(lubridate)  # For quarter formatting
+library(scales)  # For percentage labels
+library(ggplot2)
+library(dplyr)
+
+library(lubridate)
+library(tidyr)
+library(scales)  
+library(forcats)  # For better factor handling
+
+
+# Ensure dataset is sorted by Start date
+stage_report_clean <- stage_report_clean %>%
+  mutate(Duration = as.numeric(End - Start)) %>%
+  arrange(Start)
+
+# Get min & max dates for scaling
+global_min_date <- min(stage_report_clean$Start, na.rm = TRUE)
+global_max_date <- max(stage_report_clean$End, na.rm = TRUE)
+
+# Function to format dates as "Q1 2024"
+quarter_labels <- function(x) {
+  paste0("Q", quarter(x), " ", year(x))
+}
+
+# Create Gantt Chart using original logic
+gantt_chart <- ggplot(stage_report_clean, aes(
+  x = Start, 
+  xend = End, 
+  y = fct_reorder(Task_Name, desc(Start)), 
+  color = Health
+)) +
+  
+  # ✅ Task bars (aligned properly using x and xend)
+  geom_segment(aes(yend = fct_reorder(Task_Name, desc(Start))), linewidth = 5) +
+  
+  # ✅ Add a vertical "Today" line
+  geom_vline(xintercept = as.numeric(Sys.Date()), linetype = "dashed", color = "red", linewidth = 1) +
+  annotate("text", x = Sys.Date(), y = 1, label = "Today", color = "red", fontface = "bold", vjust = -1) +
+  
+  # ✅ Facet by "Wave" (fixing the swimlane layout)
+  facet_grid(Wave ~ ., scales = "free_y", space = "free_y") +
+  
+  # ✅ Scale X-axis by quarters
+  scale_x_date(
+    limits = c(global_min_date, global_max_date),  
+    breaks = seq(global_min_date, global_max_date, by = "3 months"),  # Set breaks every quarter
+    labels = quarter_labels   # Custom quarter format function
+  ) +
+  
+  # ✅ Improve Theme (Maintaining Original Styling)
+  theme_minimal(base_size = 14) +
+  theme(
+    panel.background = element_rect(fill = "white"),
+    plot.background = element_rect(fill = "#f7f7f3"),
+    strip.text = element_text(size = 16, face = "bold", color = "white", angle = 90, hjust = 1),
+    axis.text.y = element_text(color = "black", size = 9, face = "bold"),  
+    axis.text.x = element_text(color = "black", angle = 45, hjust = 1),  
+    axis.title = element_text(color = "black", face = "bold"),
+    strip.background = element_rect(fill = "navy"),
+    panel.grid.major.x = element_line(color = "grey80"),  # Keep x-axis grid for readability
+    panel.grid.major.y = element_blank(),  # Remove y-grid for cleaner swimlanes
+    panel.grid.minor = element_blank()
+  ) +
+  
+  # ✅ Set Fill Colors for Health status
+  scale_color_manual(values = c("Green" = "forestgreen",  
+                                "Red" = "#fc2807",  
+                                "Gray" = "gray60")) +
+  
+  # ✅ Labels
+  labs(title = "Wave-Based Gantt Chart (Swimlanes by Wave)", 
+       x = "Date", y = "Task", color = "Health")
+
+# ✅ Display final Gantt Chart
+gantt_chart
+#-------------------------------------
+#-------------------------------------
+#-------------------------------------
+# Load libraries
+library(readxl)
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+library(forcats)
+library(scales)
+library(tidyr)
+
+#-------------------------------
+# ✅ Function to sort by Health and prepare for faceting by Assigned To
+facet_by_assigned_to_health <- function(data) {
+  data %>%
+    mutate(
+      Health = factor(Health, levels = c("Green", "Red", "Gray")),
+      Health_rank = as.numeric(Health),
+      `Assigned To` = factor(`Assigned To`),
+      Task_Num = fct_reorder2(Task_Name, Health_rank, Start, .fun = min, .desc = FALSE)
+    )
+}
+
+#-------------------------------
+# ✅ Load and clean data
+stage_report_clean <- read_excel("data/stage_report.xlsx") %>%
+  mutate(
+    Start = as.Date(`Start Date`),
+    End = as.Date(`End Date`),
+    Duration = as.numeric(End - Start + 1),
+    Health = ifelse(is.na(Health) | Health == "", "Gray", Health),
+    Task_Name = `short name`,
+    Active_Phase = factor(`Active Phase`)
+  ) %>%
+  filter(!is.na(Start) & !is.na(End)) %>%
+  filter(Wave == "Wave 1") %>%
+  arrange(Start) %>%
+  facet_by_assigned_to_health()
+
+#-------------------------------
+# ✅ Set up time scaling and formatting
+global_min_date <- min(stage_report_clean$Start, na.rm = TRUE)
+global_max_date <- max(stage_report_clean$End, na.rm = TRUE)
+
+quarter_labels <- function(x) {
+  paste0("Q", quarter(x), " ", year(x))
+}
+
+extra_padding <- theme(plot.margin = margin(50, 50, 50, 50, "pt"))
+
+#-------------------------------
+# ✅ Color mappings
+health_colors <- c("Green" = "forestgreen", "Red" = "firebrick", "Gray" = "gray60")
+phase_colors <- c(
+  "Planning" = "blue",
+  "Assesment" = "purple",
+  "Implementation" = "orange",
+  "Procurement" = "#ca7a13",
+  "Closure" = "#a5e914",
+  "Initiation" = "pink",
+  "Not Started" = "gray",
+  "Completed" = "green"
+)
+
+#-------------------------------
+# ✅ Build Gantt Chart
+gantt_chart <- ggplot(stage_report_clean, aes(
+  x = Start, 
+  xend = End, 
+  y = Task_Num, 
+  color = Health
+)) +
+  geom_segment(aes(yend = Task_Num), linewidth = 4) +
+  geom_label(
+    aes(x = End + 1, y = Task_Num, label = Active_Phase, fill = Active_Phase),
+    color = "white", fontface = "bold", size = 4, hjust = 0,
+    na.rm = TRUE, label.size = 0.1
+  ) +
+  geom_vline(xintercept = as.numeric(Sys.Date()), linetype = "dashed", color = "red", linewidth = 1) +
+  annotate("text", x = Sys.Date(), y = 1, label = "Today", color = "red", fontface = "bold", vjust = -1) +
+  
+  #facet_grid(`Assigned To` ~ ., scales = "free_y", space = "free_y") +
+  facet_grid(Wave  ~ ., scales = "free_y", space = "free_y") +
+  
+  scale_x_date(
+    limits = c(global_min_date, global_max_date),
+    breaks = seq(global_min_date, global_max_date, by = "3 months"),
+    labels = quarter_labels
+  ) +
+  scale_color_manual(values = health_colors, name = "Health") +
+  scale_fill_manual(values = phase_colors, name = "Active Phase") +
+  
+  labs(
+    title = "Gantt Chart Faceted by Owner (Sorted by Health)",
+    x = "Date", y = "Initiative"
+  ) +
+  
+  theme_minimal(base_size = 14) +
+  extra_padding +
+  theme(
+    panel.background = element_rect(fill = "white"),
+    plot.background = element_rect(fill = "#f7f7f3"),
+    strip.text = element_text(size = 16, face = "bold", color = "white", angle = 90, hjust = 1),
+    axis.text.y = element_text(color = "black", size = 9, face = "bold"),
+    axis.text.x = element_text(color = "black", angle = 45, hjust = 1),
+    axis.title = element_text(color = "black", face = "bold"),
+    strip.background = element_rect(fill = "navy"),
+    panel.grid.major.x = element_line(color = "grey80"),
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+#-------------------------------
+# ✅ Display the final chart
+gantt_chart
+
+#------------------------------------
+#-------------------------------------
+library(ggplot2)
+library(dplyr)
+library(lubridate)
+library(forcats)
+library(readxl)
+
+
+library(ggplot2)
+library(dplyr)
+library(scales)  # For percentage labels
+
+
+
+
+# Load data from Excel
+stage_report <- read_excel("data/stage_report.xlsx")
+
+# ✅ Convert columns to proper data types
+stage_report_clean <- stage_report %>%
+  mutate(
+    Start = as.Date(`Start Date`, format = "%Y-%m-%d"),
+    End = as.Date(`End Date`, format = "%Y-%m-%d"),
+    Duration = as.numeric(End - Start + 1),  
+    Health = ifelse(is.na(Health) | Health == "", "Gray", Health),  # Handle missing values
+    Health = factor(Health, levels = c("Green", "Red", "Gray")),  # Convert to factor
+    Task_Name = `short name`  # Use short names for labels
+  ) %>%
+  filter(!is.na(Start) & !is.na(End)) %>%  # Remove tasks with missing dates
+  arrange(Start) %>%  # Ensure tasks are sorted by Start date
+  #filter(Wave=="Wave 1")
+# Get today's date
+
+
+# Ensure dataset is sorted by Start date
+stage_report_clean <- stage_report_clean %>%
+  mutate(
+    Duration = as.numeric(End - Start),
+    Active_Phase = factor(`Active Phase`),  # Ensure it's a factor for coloring
+    Task_Num = fct_reorder(Task_Name, desc(Start))  # Reorder tasks
+  ) %>%
+  arrange(Start) %>%
+  mutate(Percent_Label = paste0(round(`% Complete` * 100), "%"))
+
+# Get min & max dates for scaling
+global_min_date <- min(stage_report_clean$Start, na.rm = TRUE)
+global_max_date <- max(stage_report_clean$End, na.rm = TRUE)
+
+# Function to format dates as "Q1 2024"
+quarter_labels <- function(x) {
+  paste0("Q", quarter(x), " ", year(x))
+}
+
+
+# ✅ Define padding
+extra_padding <- theme(plot.margin = margin(50, 50, 50, 50, "pt"))  # Top, Right, Bottom, Left
+
+# Create Gantt Chart
+gantt_chart <- ggplot(stage_report_clean, aes(
+  x = Start, 
+  xend = End, 
+  y = Task_Num, 
+  color = Health  # ✅ This fixes black bars by coloring based on Health
+)) +
+  
+  # ✅ Task bars (Now colored by Health)
+  geom_segment(aes(yend = Task_Num), linewidth = 4) +  
+  
+
+  # ✅ Add Active Phase badges at the end of bars with extra padding
+  #geom_label(aes(x = End + 1, y = Task_Num, label = Active_Phase, fill = Active_Phase),  
+   #          color = "white", fontface = "bold", size = 4, hjust = 0,  
+   #          na.rm = TRUE, label.size = 0.1, nudge_x = 0) + # ✅ Adds spacing
+
+  
+  geom_label(aes(
+    x = End + 1,
+    y = Task_Num,
+    label = paste0(Active_Phase, " (", Percent_Label, ")"),
+    fill = Active_Phase
+  ),
+  color = "white",
+  fontface = "bold",
+  size = 3.5,
+  hjust = 0,
+  na.rm = TRUE,
+  label.size = 0.1,
+  nudge_x = 0
+  ) +
+
+
+  
+  # ✅ Add a vertical "Today" line
+  geom_vline(xintercept = as.numeric(Sys.Date()), linetype = "dashed", color = "red", linewidth = 1) +
+  annotate("text", x = Sys.Date(), y = 1, label = "Today", color = "red", fontface = "bold", vjust = -1) +
+  
+  # ✅ Facet by "Wave" (fixing the swimlane layout)
+  facet_grid(Wave ~ ., scales = "free_y", space = "free_y") +
+  
+  # ✅ Scale X-axis by quarters
+  scale_x_date(
+    limits = c(global_min_date, global_max_date),  
+    breaks = seq(global_min_date, global_max_date, by = "3 months"),  
+    labels = quarter_labels   
+  ) +
+  
+  extra_padding +
+  
+  # ✅ Improve Theme
+  theme_minimal(base_size = 14) +
+  theme(
+    panel.background = element_rect(fill = "white"),
+    plot.background = element_rect(fill = "#f7f7f3"),
+    strip.text = element_text(size = 16, face = "bold", color = "white", angle = 90, hjust = 1),
+    axis.text.y = element_text(color = "black", size = 9, face = "bold"),  
+    axis.text.x = element_text(color = "black", angle = 45, hjust = 1),  
+    axis.title = element_text(color = "black", face = "bold"),
+    strip.background = element_rect(fill = "navy"),
+    panel.grid.major.x = element_line(color = "grey80"),  # Keep x-axis grid for readability
+    panel.grid.major.y = element_blank(),  # Remove y-grid for cleaner swimlanes
+    panel.grid.minor = element_blank()
+  ) +
+  
+  # ✅ Set Color for Health (Fixing Black Bars)
+  scale_color_manual(values = c("Green" = "forestgreen",  
+                                "Red" = "firebrick",  
+                                "Grey" = "gray60")) +
+  
+  # ✅ Set Fill Colors for Active Phase Labels
+  scale_fill_manual(values = c("Planning" = "blue",  #blue
+                               "Assesment" = "purple",
+                               "Implementation" = "orange", #orange 
+                               "Procurement" = "#ca7a13",
+                               "Closure" = "#a5e914",
+                               "Initiation" = "pink",
+                               "Not Started" = "gray",
+                               "Completed"= "green"), name = "Active Phase") +
+  
+  # ✅ Labels
+  labs(title = "Wave-Based Gantt Chart (Swimlanes by Wave)", 
+       x = "Date", y = "Initiative", color = "Health")
+
+# ✅ Display final Gantt Chart
+gantt_chart
+#-------------------------------------------------------------------------------
+
+#-------------------------------------------------------------------------------
+library(ggplot2)
+library(dplyr)
+library(purrr)
+library(tidyr)
+library(gridExtra)  # Required for arranging multiple plots
+
+# ✅ Define Colors
+
+bg_color <- "#0A2A67"  # Dark Navy Blue (Background)
+bg_color <- "#f5f7f4"
+card_bg_color <- "#1C3D7A"  # Dark Blue for Progress Cards
+progress_color <- "#FDB927"  # Gold (Progress Fill)
+progress_bg_color <- "#A0AEC0"  # Light Gray for Progress Bar Background
+step_done <- "#1A936F"  # Green (Completed Steps)
+step_pending <- "#D0D3D4"  # Light Gray (Pending Steps)
+text_color <- "#FFFFFF"  # White Text for High Contrast
+title_box_color <- "gray40"  # ✅ Sleek Grey for Titles
+health_colors <- c("Green" = "#1A936F", "Red" = "#E74C3C", "Gray" = "#BDC3C7")
+stage_colors <- c(
+  "Planning" = "#1F78B4",         # Blue
+  "Assesment" = "purple",       # Dark Purple
+  "Implementation" = "#FDBF2D",   # Gold/Yellow
+  "Procurement" = "#E31A1C",      # Red
+  "Closure" = "#33A02C",          # Green
+  "Initiation" = "#FB9A99",       # Soft Pink
+  "Not Started" = "#A0AEC0"       # Light Gray
+)
+
+# ✅ Fix Percentages by Grouping by Wave
+wave_data <- stage_report_clean %>%
+  group_by(Wave) %>%
+  summarise(
+    Initiatives = n(),
+    Avg_Progress = mean(`% Complete`, na.rm = TRUE),
+    Most_Common_Health = names(sort(table(Health), decreasing = TRUE))[1]  # Most frequent health status
+  ) %>%
+  ungroup() %>%
+  mutate(Wave_Title = paste(Wave, "Progress"))  # Formatting title
+
+# ✅ Generate Step Markers
+step_points <- wave_data %>%
+  group_by(Wave) %>%
+  summarise(Steps = list(seq(0, 1, length.out = 5))) %>%
+  unnest(cols = c(Steps))
+
+# ✅ Fix Stage Breakdown Data
+stage_progress <- stage_report_clean %>%
+  group_by(Wave, `Active Phase`) %>%
+  summarise(Count = n(), .groups = "drop")  # ✅ Count initiatives per Active Phase per Wave
+
+
+
+# ✅ Progress Cards (Top Row)
+progress_cards <- ggplot(wave_data, aes(x = 0, y = 1)) +
+  
+  # ✅ Background for Each Card
+  annotate("rect", xmin = -0.7, xmax = 1, ymin = -0.5, ymax = 0.7, 
+           fill = card_bg_color, color = NA) +
+  
+  # ✅ Progress Bar Background (Lighter Gray for Visibility)
+  annotate("rect", xmin = -0.7, xmax = 1, ymin = -0.1, ymax = 0.1, 
+           fill = progress_bg_color, color = NA) +
+  
+  # ✅ Filled Progress Bar
+  geom_rect(aes(xmin = -0.7, xmax = -0.7 + Avg_Progress * 1.5, ymin = -0.1, ymax = 0.1), 
+            fill = progress_color, color = NA) +
+  
+  # ✅ Step Markers
+  geom_point(data = step_points, aes(x = Steps * 1.5 - 0.75, y = 0), size = 4, color = step_pending) +  
+  geom_point(data = step_points %>% filter(Steps <= wave_data$Avg_Progress), 
+             aes(x = Steps * 1.5 - 0.75, y = 0), size = 5, color = step_done) +  
+  
+  # ✅ Status Indicator (Health Circle)
+  geom_point(aes(x = 1.05, y = 0.5, fill = Most_Common_Health), 
+             size = 12, shape = 21, color = "black", stroke = 1.5) +  
+  scale_fill_manual(values = health_colors) +
+  
+  # ✅ Wave Title (Centered and Better Spacing)
+  geom_text(aes(x = -0.5, y = 0.55, label = Wave_Title), 
+            hjust = 0, color = text_color, size = 7, fontface = "bold") +
+  
+  # ✅ Initiatives Count (Better Alignment)
+  geom_text(aes(x = -0.5, y = 0.3, label = paste("Initiatives:", Initiatives)), 
+            hjust = 0, color = text_color, size = 6, fontface = "bold") +
+  
+  # ✅ Progress Percentage (Aligned with Initiatives)
+  geom_text(aes(x = 0.9, y = 0.3, label = paste("Progress:", scales::percent(Avg_Progress, accuracy = 1))), 
+            hjust = 1, color = text_color, size = 6, fontface = "bold") +
+  
+  # ✅ Facet to create three side-by-side cards
+  facet_wrap(~Wave, nrow = 1) +  
+  
+  theme_void() +
+  theme(
+    legend.position = "none",
+    strip.text = element_blank(),
+    plot.background = element_rect(fill = bg_color, color = NA),
+    panel.background = element_rect(fill = bg_color, color = NA)
+  )
+
+stage_progress <- stage_report_clean %>%
+  group_by(Wave, `Active Phase`) %>%
+  summarise(Count = n(), .groups = "drop") %>%
+  
+  # ✅ Ensure all Active Phases exist in each Wave (fill missing ones with Count = 0)
+  complete(Wave, `Active Phase`, fill = list(Count = 0)) %>%
+  
+  # ✅ Ensure `Active Phase` follows the correct order
+  mutate(`Active Phase` = factor(`Active Phase`, 
+                                 levels = c("Not Started", "Assesment", "Initiation", 
+                                            "Planning", "Procurement", "Implementation", 
+                                            "Closure")))
+
+
+
+# ✅ Stage Breakdown Bar Chart (Bottom Row)
+stage_chart <- ggplot(stage_progress, aes(x = `Active Phase`, y = Count, fill = `Active Phase`)) +
+  geom_col(width = 0.6) +  
+  
+  # ✅ Fix label positioning to avoid overlap
+  geom_text(aes(label = Count), vjust = -0.3, size = 5, fontface = "bold", color = "white") +
+  
+  # ✅ Ensure Y-axis has extra padding at the top
+  scale_y_continuous(expand = expansion(mult = c(0, 0.25))) +  
+  
+  # ✅ Apply the updated color scheme
+  scale_fill_manual(values = stage_colors, name = "Active Phase") +
+  
+  facet_wrap(~Wave, nrow = 1) +  
+  
+  theme_minimal(base_size = 14) +
+  theme(
+    legend.position = "none",
+    
+    # ✅ Change X and Y Axis Title Colors to White
+    axis.title.x = element_text(color = "white", size = 14, face = "bold"),  
+    axis.title.y = element_text(color = "white", size = 14, face = "bold"),  
+    
+    axis.text.x = element_text(angle = 30, hjust = 1, color = "white", face = "bold"),  
+    axis.text.y = element_text(color = "white", face = "bold"),
+    strip.text = element_text(face = "bold", size = 14, color = "white"),  
+    strip.background = element_rect(fill = title_box_color),  
+    panel.grid.major.x = element_blank(),
+    panel.grid.major.y = element_line(color = "gray60"),  
+    plot.background = element_rect(fill = bg_color, color = NA)  
+  ) +
+  
+  labs(x = "Active Phase", y = "Count")  # ✅ Ensure labels are set properly
+
+
+# ✅ Combine Plots into a Grid Layout (2 Rows)
+grid.arrange(progress_cards, stage_chart, ncol = 1)
+
+#-------------------------------------------------------------------------
+#- Dount plot
+#-------------------------------------------------------------------------
+create_doughnut_chart <- function(data, title = "Stage Breakdown by Wave") {
+  
+  # ✅ Ensure data has the correct structure
+  data <- data %>%
+    group_by(Wave, `Active Phase`) %>%
+    summarise(Count = n(), .groups = "drop") %>%
+    
+    # ✅ Ensure all Active Phases exist in each Wave (fill missing ones with Count = 0)
+    complete(Wave, `Active Phase`, fill = list(Count = 0)) %>%
+    
+    # ✅ Calculate Percentage of each Active Phase per Wave
+    group_by(Wave) %>%
+    mutate(Percentage = (Count / sum(Count)) * 100) %>%
+    ungroup() %>%
+    
+    # ✅ Ensure Active Phases follow the correct order
+    mutate(`Active Phase` = factor(`Active Phase`, 
+                                   levels = c("Not Started", "Assessment", "Initiation", 
+                                              "Planning", "Procurement", "Implementation", 
+                                              "Closure")))
+  
+  # ✅ Create Doughnut Chart
+  ggplot(data, aes(x = "", y = Percentage, fill = `Active Phase`)) +
+    geom_bar(stat = "identity", width = 1) +  # ✅ Convert bars into pie slices
+    
+    # ✅ Convert Pie Chart into Doughnut
+    coord_polar(theta = "y", start = 0) +  
+    
+    # ✅ Apply the updated color scheme
+    scale_fill_manual(values = stage_colors, name = "Active Phase") +
+    
+    # ✅ Add a larger white circle in the center to create the doughnut effect
+    annotate("point", x = 0, y = 0, size = 40, color = "white") +  
+    
+    facet_wrap(~Wave, nrow = 1) +  # ✅ Create one doughnut chart per Wave
+    
+    theme_void() +  # ✅ Remove axes for a clean look
+    theme(
+      legend.position = "bottom",  # ✅ Move legend below the chart
+      strip.text = element_text(face = "bold", size = 14, color = "white"),  
+      strip.background = element_rect(fill = title_box_color),  
+      plot.background = element_rect(fill = bg_color, color = NA)  
+    ) +
+    
+    labs(title = title)  # ✅ Add custom title
+}
+stage_chart <- create_doughnut_chart(stage_report_clean)
+

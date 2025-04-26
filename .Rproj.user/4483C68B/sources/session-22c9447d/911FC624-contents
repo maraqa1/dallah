@@ -1,0 +1,237 @@
+dashboardAnalyticsUI <- function(id) {
+  ns <- NS(id)
+  fluidPage(
+    h3("Dashboard Analytics", style = "font-weight: bold; text-align: center; margin-bottom: 20px;"),
+    hr(style = "border-top: 3px solid #007bff;"),
+    
+    fluidRow(
+      column(6, selectInput(ns("projectFilter"), "Filter by Project:", choices = NULL, selected = "All")),
+      column(6, selectInput(ns("assigneeFilter"), "Filter by Assignee:", choices = NULL, selected = "All"))
+    ),
+    
+    hr(style = "border-top: 1px solid #ccc;"),
+    
+    # Value Boxes
+    fluidRow(
+      column(2, uiOutput(ns("totalTasksBox"))),
+      column(2, uiOutput(ns("blockedTasksBox"))),
+      column(2, uiOutput(ns("highRiskTasksBox"))),
+      column(2, uiOutput(ns("overdueTasksBox"))),
+      column(2, uiOutput(ns("inProgressTasksBox"))),
+      column(2, uiOutput(ns("averageProgressBox")))
+    ),
+    
+    hr(style = "border-top: 3px solid #007bff;"),
+    
+    # Plot Full Width
+    h4("Visual Insights", style = "font-weight: bold; text-align: center; margin-top: 20px;"),
+    fluidRow(
+      column(
+        12,
+        plotOutput(ns("progressByProjectPlot"), height = "600px")  # 👈 takes full row
+      )
+    ),
+    
+    fluidRow(
+      column(
+        12,
+        plotOutput(ns("riskLevelsByAssigneePlot"), height = "400px")
+      )
+    ),
+    
+    hr(style = "border-top: 3px solid #007bff;"),
+    
+    # Heatmap Table
+    h4("Task Overview (Heatmap Table)", style = "font-weight: bold; text-align: center; margin-top: 20px;"),
+    fluidRow(
+      column(12, dataTableOutput(ns("heatmapTable")))
+    )
+  )
+}
+
+dashboardAnalyticsServer <- function(input, output, session, tasks) {
+  ns <- session$ns
+  
+  
+  observe({
+    req(tasks())
+    data <- tasks()
+    updateSelectInput(session, "projectFilter", choices = c("All", unique(data$`short name`)))
+    updateSelectInput(session, "assigneeFilter", choices = c("All", unique(data$`Assigned To`)))
+  })
+  
+  filtered_data <- reactive({
+    req(tasks())
+    data <- tasks()
+    
+    if (!is.null(input$projectFilter) && input$projectFilter != "All") {
+      data <- data[data$`short name` == input$projectFilter, ]
+    }
+    if (!is.null(input$assigneeFilter) && input$assigneeFilter != "All") {
+      data <- data[data$`Assigned To` == input$assigneeFilter, ]
+    }
+    
+    # ✅ Safe % Complete parsing
+    if (!is.numeric(data$`% Complete`)) {
+      data$`% Complete` <- suppressWarnings(readr::parse_number(as.character(data$`% Complete`)))
+    }
+    data$`% Complete` <- data$`% Complete` * 100
+    
+    data
+  })
+  
+  
+  # --- Value Boxes ---
+  output$totalTasksBox <- renderUI({
+    
+    #browser()
+    n <- nrow(filtered_data())
+    div(style = "background:#007bff;color:white;padding:20px;border-radius:10px;text-align:center;", h3(n), p("Total Tasks"))
+  })
+  
+  output$blockedTasksBox <- renderUI({
+    n <- sum(tolower(trimws(filtered_data()$Health)) == "red", na.rm = TRUE)
+    div(style = "background:#dc3545;color:white;padding:20px;border-radius:10px;text-align:center;", h3(n), p("Critical Health (Red)"))
+  })
+  
+  output$highRiskTasksBox <- renderUI({
+    n <- sum(tolower(trimws(filtered_data()$Health)) == "amber", na.rm = TRUE)
+    div(style = "background:#ffc107;color:white;padding:20px;border-radius:10px;text-align:center;", h3(n), p("Medium Risk (Amber)"))
+  })
+#-------------------------------------------------------------------------------  
+  output$overdueTasksBox <- renderUI({
+    data <- filtered_data()
+    
+    # Safe parse of dates
+    start_dates <- suppressWarnings(as.Date(data$`Start Date`, tryFormats = c("%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y")))
+    end_dates   <- suppressWarnings(as.Date(data$`End Date`, tryFormats = c("%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y")))
+    
+    # Clean status
+    status <- tolower(trimws(data$Status))
+    
+    # Overdue logic (PM view)
+    overdue <- (
+      (!is.na(start_dates) & start_dates < Sys.Date() & status == "not started") |
+        (!is.na(end_dates)   & end_dates   < Sys.Date() & status != "completed")
+    )
+    
+    count <- sum(overdue, na.rm = TRUE)
+    
+    div(
+      style = "background:#dc3545;color:white;padding:20px;border-radius:10px;text-align:center;",
+      h3(count),
+      p("Overdue Tasks (Not Started / Incomplete)")
+    )
+  })
+  #-------------------------------------------------------------------------------   
+  
+  output$inProgressTasksBox <- renderUI({
+    n <- sum(tolower(trimws(filtered_data()$Status)) == "in progress", na.rm = TRUE)
+    div(style = "background:#17a2b8;color:white;padding:20px;border-radius:10px;text-align:center;", h3(n), p("In Progress"))
+  })
+  
+  output$averageProgressBox <- renderUI({
+    avg <- round(mean(filtered_data()$`% Complete`, na.rm = TRUE), 1)
+    div(style = "background:#28a745;color:white;padding:20px;border-radius:10px;text-align:center;", h3(paste0(avg, "%")), p("Avg. Completion"))
+  })
+  
+  # --- Plot: Progress by Project ---
+  
+  project_theme <- theme_minimal(base_size = 14) +
+    theme(
+      panel.background = element_rect(fill = "#f7f7f7"),
+      plot.background = element_rect(fill = "#f7f7f7"),
+      panel.grid.major.x = element_line(color = "grey80"),
+      panel.grid.major.y = element_blank(),
+      axis.text.x = element_text(angle = 45, hjust = 1, size = 12),
+      axis.text.y = element_text(face = "bold", size = 12),
+      plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
+      legend.position = "bottom",
+      legend.title = element_text(face = "bold"),
+      plot.margin = margin(40, 40, 40, 40, "pt")
+    )
+  
+
+  
+  
+  
+  library(tidytext)  # for reorder_within and scale_y_reordered
+  
+  output$progressByProjectPlot <- renderPlot({
+    data <- filtered_data()
+    req(nrow(data) > 0)
+    
+    # Step 1: Parse and clean fields safely
+    data$`% Complete` <- suppressWarnings(readr::parse_number(as.character(data$`% Complete`)))
+    data$Start_Date <- suppressWarnings(as.Date(data$`Start Date`, tryFormats = c("%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y")))
+    data$End_Date <- suppressWarnings(as.Date(data$`End Date`, tryFormats = c("%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y")))
+    
+    # Step 2: Mutate inside the pipeline, create safe lowercased status
+    data <- data %>%
+      mutate(
+        Status_clean = tolower(trimws(Status)),
+        Schedule_Health = case_when(
+          Status_clean %in% c("completed", "done") ~ "On Track",
+          Status_clean %in% c("not started", "in progress") &
+            Start_Date <= Sys.Date() & End_Date < Sys.Date() ~ "Delayed",
+          Status_clean %in% c("not started", "in progress") &
+            End_Date >= Sys.Date() ~ "At Risk",
+          TRUE ~ "Unknown"
+        )
+      )
+    
+    # Step 3: Group and summarize
+    project_summary <- data %>%
+      group_by(Wave, `short name`) %>%
+      summarise(
+        avg_progress = mean(`% Complete`, na.rm = TRUE),
+        Schedule_Health = names(which.max(table(Schedule_Health))),
+        .groups = "drop"
+      )
+    
+    # Step 4: Plot
+    ggplot(project_summary, aes(x = reorder(`short name`, avg_progress), y = avg_progress, fill = Schedule_Health)) +
+      geom_col() +
+      coord_flip() +
+      facet_wrap(~ Wave, scales = "free_y", nrow = 1) +
+      scale_fill_manual(
+        values = c("On Track" = "forestgreen", "At Risk" = "orange", "Delayed" = "firebrick", "Unknown" = "gray")
+      ) +
+      labs(
+        title = "Project Completion Progress by Wave",
+        x = "Project",
+        y = "Average % Complete",
+        fill = "Schedule Health"
+      ) +
+      theme_minimal(base_size = 13) +
+      theme(
+        plot.title = element_text(face = "bold", hjust = 0.5),
+        axis.text.y = element_text(size = 9, face = "bold"),
+        legend.position = "bottom"
+      )
+  })
+  
+  
+  # --- Plot: Health Levels by Assignee ---
+  output$riskLevelsByAssigneePlot <- renderPlot({
+    data <- filtered_data()
+    if (nrow(data) == 0) return(NULL)
+    
+    ggplot(data, aes(x = `Assigned To`, fill = factor(Health, levels = c("Red", "Amber", "Green", "Gray", "Unknown")))) +
+      geom_bar() +
+      coord_flip() +
+      scale_fill_manual(values = c("Red" = "red", "Amber" = "orange", "Green" = "green", "Gray" = "gray", "Unknown" = "black")) +
+      labs(title = "Task Health by Assignee", x = "Assignee", y = "Tasks") +
+      theme_minimal() +
+      theme(legend.position = "bottom")
+  })
+  
+  # --- Table: Heatmap View ---
+  output$heatmapTable <- renderDT({
+    data <- filtered_data()
+    if (nrow(data) == 0) {
+      return(datatable(data.frame(Message = "No tasks to display"), options = list(dom = 't'), rownames = FALSE))
+    }
+    datatable(data, options = list(pageLength = 10, autoWidth = TRUE, scrollX = TRUE), rownames = FALSE)
+  })
+}

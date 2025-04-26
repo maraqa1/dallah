@@ -1,0 +1,27 @@
+{
+    "id": "D5C092C4",
+    "path": "C:/R_Home/Dallah_dashboard/modules/taskInputModule.R",
+    "project_path": "modules/taskInputModule.R",
+    "type": "r_source",
+    "hash": "240354665",
+    "contents": "",
+    "dirty": false,
+    "created": 1745658528501.0,
+    "source_on_save": false,
+    "relative_order": 8,
+    "properties": {
+        "tempName": "Untitled1",
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "99,4",
+        "scrollLine": "75"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1745664064,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1745664064578,
+    "read_only": false,
+    "read_only_alternatives": []
+}
