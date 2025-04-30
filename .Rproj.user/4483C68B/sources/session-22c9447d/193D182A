@@ -1,0 +1,26 @@
+{
+    "id": "193D182A",
+    "path": "C:/R_Home/Dallah_dashboard/modules/kanbanBoardModule.R",
+    "project_path": "modules/kanbanBoardModule.R",
+    "type": "r_source",
+    "hash": "317563543",
+    "contents": "",
+    "dirty": false,
+    "created": 1745497797952.0,
+    "source_on_save": false,
+    "relative_order": 2,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "166,67",
+        "scrollLine": "141"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1745500181,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1745500181518,
+    "read_only": false,
+    "read_only_alternatives": []
+}

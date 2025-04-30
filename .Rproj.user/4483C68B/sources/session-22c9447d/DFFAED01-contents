@@ -2,19 +2,8 @@ dashboardAnalyticsUI <- function(id) {
   ns <- NS(id)
   
   fluidPage(
-<<<<<<< HEAD
     h3("Dashboard Analytics", style = "font-weight: bold; text-align: center; margin-bottom: 20px;"),
     hr(style = "border-top: 3px solid #007bff;"),
-=======
-    tags$style(HTML("
-      .value-box-small h4 { font-size: 20px; margin: 5px 0; }
-      .value-box-small p { font-size: 12px; margin: 0; }
-      .section-divider { border-top: 3px solid #007bff; margin-top: 30px; margin-bottom: 30px; }
-    ")),
-    
-    h3("Dashboard Analytics", style = "font-weight: bold; text-align: center; margin-bottom: 20px;"),
-    div(class = "section-divider"),
->>>>>>> 199504063c151172a454c2b129edb12eeda88552
     
     # Filters
     fluidRow(
@@ -22,7 +11,6 @@ dashboardAnalyticsUI <- function(id) {
       column(6, selectInput(ns("assigneeFilter"), "Filter by Assignee:", choices = NULL, selected = "All"))
     ),
     
-<<<<<<< HEAD
     hr(style = "border-top: 1px solid #ccc;"),
     
     # Value Boxes
@@ -65,103 +53,23 @@ dashboardAnalyticsUI <- function(id) {
     
     # --- Heatmap Table ---
     h4("PM Recommendation Report", style = "font-weight: bold; text-align: center; margin-top: 20px;"),
-=======
-    div(class = "section-divider"),
-    
-    # Value Boxes - Smaller
-    fluidRow(
-      column(2, div(class = "value-box-small", uiOutput(ns("totalTasksBox")))),
-      column(2, div(class = "value-box-small", uiOutput(ns("blockedTasksBox")))),
-      column(2, div(class = "value-box-small", uiOutput(ns("highRiskTasksBox")))),
-      column(2, div(class = "value-box-small", uiOutput(ns("overdueTasksBox")))),
-      column(2, div(class = "value-box-small", uiOutput(ns("inProgressTasksBox")))),
-      column(2, div(class = "value-box-small", uiOutput(ns("averageProgressBox"))))
-    ),
-    
-    div(class = "section-divider"),
-    
-    # Visual Insights
-    h4("Overall Progress for each project", style = "font-weight: bold; text-align: center; margin-bottom: 20px;"),
-    
-    fluidRow(
-      column(12,
-             plotOutput(ns("progressByProjectPlot"), height = "500px")
-      )
-    ),
-    
-    br(),
-    br(),
-    
-    div(class = "section-divider"),
-    
-    # Visual Insights
-    h4("Progress for each PM", style = "font-weight: bold; text-align: center; margin-bottom: 20px;"),
->>>>>>> 199504063c151172a454c2b129edb12eeda88552
     
     fluidRow(
       column(12,
              div(
-<<<<<<< HEAD
                style = "padding-top: 30px; padding-bottom: 30px;",
                dataTableOutput(ns("heatmapTable"))
-=======
-               style = "overflow-x: auto; overflow-y: auto; max-height: 800px; margin-bottom: 40px;",
-               plotOutput(ns("riskLevelsByAssigneePlot"), height = "auto")
-             )
-             
-      )
-    ),
-    
-    div(class = "section-divider"),
-    
-    fluidRow(
-      column(12,
-             downloadButton(ns("downloadPMReport"), "Download PM Recommendations", class = "btn btn-primary", style = "margin-bottom:20px;")
-      )
-    ),
-    
-    hr(style = "border-top: 3px solid #003366; margin-top: 40px;"),
-    
-    h4("PM Recommendation Report", style = "font-weight: bold; text-align: center; margin-top: 20px;"),
-    fluidRow(
-      column(12,
-             div(style = "margin-top: 20px;",
-                 dataTableOutput(ns("heatmapTable"))
->>>>>>> 199504063c151172a454c2b129edb12eeda88552
              )
       )
     )
   )
 }
 
-<<<<<<< HEAD
 
-=======
->>>>>>> 199504063c151172a454c2b129edb12eeda88552
 dashboardAnalyticsServer <- function(input, output, session, tasks) {
   ns <- session$ns
   
   
-<<<<<<< HEAD
-=======
-  # ───────────────────────────────
-  # Value Box Styling Helper
-  # ───────────────────────────────
-  value_box_style <- function(color) {
-    paste0(
-      "background-color:", color, ";",
-      "color:white;",
-      "padding:10px 15px;",
-      "border-radius:8px;",
-      "text-align:center;",
-      "box-shadow:0 2px 6px rgba(0,0,0,0.1);",
-      "font-size:14px;"
-    )
-  }
-  
-  
-  # Update filter options
->>>>>>> 199504063c151172a454c2b129edb12eeda88552
   observe({
     req(tasks())
     data <- tasks()
@@ -169,10 +77,6 @@ dashboardAnalyticsServer <- function(input, output, session, tasks) {
     updateSelectInput(session, "assigneeFilter", choices = c("All", unique(data$`Assigned To`)))
   })
   
-<<<<<<< HEAD
-=======
-  # Reactive filtered data
->>>>>>> 199504063c151172a454c2b129edb12eeda88552
   filtered_data <- reactive({
     req(tasks())
     data <- tasks()
@@ -184,7 +88,6 @@ dashboardAnalyticsServer <- function(input, output, session, tasks) {
       data <- data[data$`Assigned To` == input$assigneeFilter, ]
     }
     
-<<<<<<< HEAD
     # ✅ Safe % Complete parsing
     if (!is.numeric(data$`% Complete`)) {
       data$`% Complete` <- suppressWarnings(readr::parse_number(as.character(data$`% Complete`)))
@@ -271,71 +174,10 @@ dashboardAnalyticsServer <- function(input, output, session, tasks) {
   
   library(tidytext)  # for reorder_within and scale_y_reordered
   
-=======
-    data$`% Complete` <- suppressWarnings(readr::parse_number(as.character(data$`% Complete`))) * 100
-    data
-  })
-  
-  # Total Tasks
-  output$totalTasksBox <- renderUI({
-    div(style = value_box_style("#007bff"),
-        h6("Total Tasks", style = "margin-bottom:4px;"),
-        h4(nrow(filtered_data()), style = "font-weight:bold;"))
-  })
-  
-  # Critical Health
-  output$blockedTasksBox <- renderUI({
-    n <- sum(tolower(trimws(filtered_data()$Health)) == "red", na.rm = TRUE)
-    div(style = value_box_style("#dc3545"),
-        h6("Critical Health", style = "margin-bottom:4px;"),
-        h4(n, style = "font-weight:bold;"))
-  })
-  
-  # Medium Risk
-  output$highRiskTasksBox <- renderUI({
-    n <- sum(tolower(trimws(filtered_data()$Health)) == "amber", na.rm = TRUE)
-    div(style = value_box_style("#fd7e14"),
-        h6("Medium Risk", style = "margin-bottom:4px;"),
-        h4(n, style = "font-weight:bold;"))
-  })
-  
-  # Overdue Tasks
-  output$overdueTasksBox <- renderUI({
-    data <- filtered_data()
-    start <- suppressWarnings(as.Date(data$`Start Date`, tryFormats = c("%Y-%m-%d", "%d/%m/%Y")))
-    end   <- suppressWarnings(as.Date(data$`End Date`, tryFormats = c("%Y-%m-%d", "%d/%m/%Y")))
-    status <- tolower(trimws(data$Status))
-    overdue <- ((!is.na(start) & start < Sys.Date() & status == "not started") |
-                  (!is.na(end) & end < Sys.Date() & status != "completed"))
-    div(style = value_box_style("#ffc107"),
-        h6("Overdue", style = "margin-bottom:4px;"),
-        h4(sum(overdue, na.rm = TRUE), style = "font-weight:bold;"))
-  })
-  
-  # In Progress
-  output$inProgressTasksBox <- renderUI({
-    n <- sum(tolower(trimws(filtered_data()$Status)) == "in progress", na.rm = TRUE)
-    div(style = value_box_style("#17a2b8"),
-        h6("In Progress", style = "margin-bottom:4px;"),
-        h4(n, style = "font-weight:bold;"))
-  })
-  
-  # Average Completion
-  output$averageProgressBox <- renderUI({
-    avg <- round(mean(filtered_data()$`% Complete`, na.rm = TRUE), 1)
-    div(style = value_box_style("#28a745"),
-        h6("Avg. Completion", style = "margin-bottom:4px;"),
-        h4(paste0(avg, "%"), style = "font-weight:bold;"))
-  })
-
-    
-  # Plot: Progress by Project
->>>>>>> 199504063c151172a454c2b129edb12eeda88552
   output$progressByProjectPlot <- renderPlot({
     data <- filtered_data()
     req(nrow(data) > 0)
     
-<<<<<<< HEAD
     # Step 1: Parse and clean fields safely
     data$`% Complete` <- suppressWarnings(readr::parse_number(as.character(data$`% Complete`)))
     data$Start_Date <- suppressWarnings(as.Date(data$`Start Date`, tryFormats = c("%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y")))
@@ -374,34 +216,13 @@ dashboardAnalyticsServer <- function(input, output, session, tasks) {
           Expected_Progress - Progress > 0 ~ "At Risk",
           
           # ✅ Otherwise, you're on schedule
-=======
-    data$`% Complete` <- suppressWarnings(readr::parse_number(as.character(data$`% Complete`)))
-    
-    data <- data %>%
-      mutate(
-        Start_Date = as.Date(`Start Date`, tryFormats = c("%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y")),
-        End_Date = as.Date(`End Date`, tryFormats = c("%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y")),
-        Progress = `% Complete` / 100,
-        Status_clean = tolower(trimws(Status)),
-        Duration_days = as.numeric(End_Date - Start_Date),
-        Elapsed_days = as.numeric(Sys.Date() - Start_Date),
-        Expected_Progress = ifelse(Duration_days > 0, Elapsed_days / Duration_days, NA),
-        Schedule_Health = case_when(
-          Status_clean %in% c("completed", "done") | Progress >= 1 ~ "On Track",
-          is.na(Expected_Progress) | is.na(Progress) ~ "Unknown",
-          Expected_Progress - Progress > 0.2 ~ "Delayed",
-          Expected_Progress - Progress > 0 ~ "At Risk",
->>>>>>> 199504063c151172a454c2b129edb12eeda88552
           TRUE ~ "On Track"
         )
       )
     
-<<<<<<< HEAD
     
     
     # Step 3: Group and summarize
-=======
->>>>>>> 199504063c151172a454c2b129edb12eeda88552
     project_summary <- data %>%
       group_by(Wave, `short name`) %>%
       summarise(
@@ -410,7 +231,6 @@ dashboardAnalyticsServer <- function(input, output, session, tasks) {
         .groups = "drop"
       )
     
-<<<<<<< HEAD
     # Step 4: Plot
     ggplot(project_summary, aes(x = reorder(`short name`, avg_progress), y = avg_progress, fill = Schedule_Health)) +
       geom_col() +
@@ -419,18 +239,6 @@ dashboardAnalyticsServer <- function(input, output, session, tasks) {
       scale_fill_manual(
         values = c("On Track" = "forestgreen", "At Risk" = "orange", "Delayed" = "firebrick", "Unknown" = "gray")
       ) +
-=======
-    ggplot(project_summary, aes(x = reorder(`short name`, avg_progress), y = avg_progress, fill = Schedule_Health)) +
-      geom_col() +
-      coord_flip() +
-      facet_wrap(~ Wave, scales = "free_y") +
-      scale_fill_manual(values = c(
-        "On Track" = "forestgreen",
-        "At Risk" = "orange",
-        "Delayed" = "firebrick",
-        "Unknown" = "gray"
-      )) +
->>>>>>> 199504063c151172a454c2b129edb12eeda88552
       labs(
         title = "Project Completion Progress by Wave",
         x = "Project",
@@ -441,7 +249,6 @@ dashboardAnalyticsServer <- function(input, output, session, tasks) {
       theme(
         plot.title = element_text(face = "bold", hjust = 0.5),
         axis.text.y = element_text(size = 9, face = "bold"),
-<<<<<<< HEAD
         legend.position = "bottom"
       )
   })
@@ -579,34 +386,11 @@ dashboardAnalyticsServer <- function(input, output, session, tasks) {
     data <- data %>%
       mutate(
         Progress = suppressWarnings(readr::parse_number(as.character(`% Complete`)) / 100),
-=======
-        strip.text = element_text(face = "bold"),
-        legend.position = "bottom",
-        panel.grid.major.y = element_blank(),
-        panel.grid.major.x = element_line(color = "grey90")
-      ) +
-       theme_dashboard()
-  }, height = function() {
-    num_projects <- nrow(filtered_data())
-    height <- min(600, 100 + num_projects * 20)
-    max(height, 300)
-  })
-  
-  output$riskLevelsByAssigneePlot <- renderPlot({
-    data <- filtered_data()
-    req(nrow(data) > 0)
-    
-    data <- data %>%
-      mutate(
-        `% Complete` = suppressWarnings(readr::parse_number(as.character(`% Complete`))),
-        Progress = ifelse(`% Complete` > 1, `% Complete` / 100, `% Complete`),
->>>>>>> 199504063c151172a454c2b129edb12eeda88552
         Start_Date = as.Date(`Start Date`, tryFormats = c("%Y-%m-%d", "%d/%m/%Y")),
         End_Date = as.Date(`End Date`, tryFormats = c("%Y-%m-%d", "%d/%m/%Y")),
         Duration_days = as.numeric(End_Date - Start_Date),
         Elapsed_days = as.numeric(pmin(Sys.Date(), End_Date) - Start_Date),
         Expected_Progress = ifelse(Duration_days > 0, pmax(0, pmin(1, Elapsed_days / Duration_days)), NA),
-<<<<<<< HEAD
         Status_clean = tolower(trimws(Status))
       )
     
@@ -632,106 +416,11 @@ dashboardAnalyticsServer <- function(input, output, session, tasks) {
         )
       ) %>%
       select(
-=======
-        Status_clean = tolower(trimws(Status)),
-        Schedule_Health = case_when(
-          Status_clean %in% c("completed", "done") | Progress >= 1 ~ "On Track",
-          is.na(Expected_Progress) | is.na(Progress) ~ "Unknown",
-          Expected_Progress - Progress > 0.2 ~ "Delayed",
-          Expected_Progress - Progress > 0 ~ "At Risk",
-          TRUE ~ "On Track"
-        ),
-        Assignee = `Assigned To`,
-        Project = `short name`,
-        Wave = as.character(Wave),
-        Phase = `Active Phase`,
-        Progress_Label = paste0(round(Progress * 100), "%"),
-        Health_Icon = case_when(
-          Schedule_Health == "On Track" ~ "🟢",
-          Schedule_Health == "At Risk" ~ "🟠",
-          Schedule_Health == "Delayed" ~ "🔴",
-          TRUE ~ "⚫"
-        ),
-        Badge_Label = paste(Health_Icon, Progress_Label, "|", Phase)
-      ) %>%
-      filter(!is.na(Project), !is.na(Start_Date), !is.na(End_Date), !is.na(Assignee))
-    
-    ggplot(data, aes(y = reorder(Project, Start_Date))) +
-      geom_segment(aes(x = Start_Date, xend = End_Date, yend = Project, color = Schedule_Health), linewidth = 5) +
-      geom_text(aes(x = End_Date + 5, label = Badge_Label), hjust = 0, size = 3.5, fontface = "bold") +
-      
-      geom_vline(xintercept = as.numeric(Sys.Date()), linetype = "dashed", color = "red", linewidth = 1) +
-      annotate("text", x = Sys.Date(), y = 1, label = "Today", vjust = -1, color = "red", fontface = "bold", angle = 90) +
-      
-      facet_wrap(~ Assignee, scales = "free_y", ncol = 2) +
-      scale_color_manual(values = c(
-        "On Track" = "forestgreen",
-        "At Risk"  = "orange",
-        "Delayed"  = "firebrick",
-        "Unknown"  = "gray"
-      )) +
-      scale_x_date(date_labels = "%b %Y") +
-      labs(
-        title = "Task Health by Project Manager (Progress & Phase)",
-        y = NULL,
-        x = NULL,
-        color = "Schedule Health"
-      ) +
-      theme_dashboard()  # Apply your centralized theme
-  }, height = function() {
-    assignees <- unique(filtered_data()$`Assigned To`)
-    rows_needed <- ceiling(length(assignees) / 2)
-    height <- 350 + rows_needed * 280
-    max(height, 600)
-  })
-  
-  
-  output$heatmapTable <- renderDT({
-    data <- filtered_data()
-    req(nrow(data) > 0)
-    
-    summary <- data %>%
-      mutate(
-        Progress = suppressWarnings(readr::parse_number(as.character(`% Complete`))) / 100,
-        Start = as.Date(`Start Date`, tryFormats = c("%Y-%m-%d", "%d/%m/%Y")),
-        End   = as.Date(`End Date`, tryFormats = c("%Y-%m-%d", "%d/%m/%Y")),
-        Duration = as.numeric(End - Start),
-        Elapsed = as.numeric(pmin(Sys.Date(), End) - Start),
-        Expected = ifelse(Duration > 0, Elapsed / Duration, NA)
-      ) %>%
-      group_by(`Assigned To`, `short name`) %>%
-      summarise(
-        Actual_Progress = round(mean(Progress, na.rm = TRUE) * 100, 1),
-        Expected_Progress = round(mean(Expected, na.rm = TRUE) * 100, 1),
-        Gap = round(Expected_Progress - Actual_Progress, 1),
-        Phase = first(`Active Phase`),
-        Recommendation = case_when(
-          is.na(Expected_Progress) | is.na(Actual_Progress) ~ "❓ Incomplete",
-          Gap > 20 ~ paste("⚠️ Behind by", Gap, "%"),
-          Gap < -20 ~ paste("🚀 Ahead by", abs(Gap), "%"),
-          TRUE ~ "✅ On Track"
-        ),
-        
-     
-          Recommendation = case_when(
-            Status %in% c("completed", "done") ~ "✅ Project completed.",
-            is.na(Expected_Progress) | is.na(Actual_Progress) ~ "❓ Data incomplete.",
-            Gap > 20 ~ paste0("⚠️ Behind by ", Gap, "%. Focus on accelerating '", Phase, "' phase."),
-            Gap < -20 ~ paste0("🚀 Ahead by ", abs(Gap), "%. Excellent progress!"),
-            TRUE ~ "✅ On track, keep momentum!"
-          ),
-          
-        
-        .groups = "drop"
-      ) %>%
-      rename(
->>>>>>> 199504063c151172a454c2b129edb12eeda88552
         `Project Manager` = `Assigned To`,
         `Project` = `short name`,
         `Actual Progress (%)` = Actual_Progress,
         `Expected Progress (%)` = Expected_Progress,
         `Progress Gap (%)` = Gap,
-<<<<<<< HEAD
         `Active Phase` = Active_Phase,
         `Recommendation`
       )
@@ -749,27 +438,12 @@ dashboardAnalyticsServer <- function(input, output, session, tasks) {
           "  if (data[5] == 'Procurement') { $('td:eq(5)', row).css('color', 'orange'); }",
           "  if (data[5] == 'Implementation') { $('td:eq(5)', row).css('color', 'blue'); }",
           "  if (data[5] == 'Assessment') { $('td:eq(5)', row).css('color', 'purple'); }",
-=======
-        `Active Phase` = Phase
-      )
-    
-    datatable(
-      summary,
-      options = list(
-        pageLength = 10,
-        scrollX = TRUE,
-        rowCallback = JS(
-          "function(row, data) {",
-          "  if (parseFloat(data[4]) > 20) { $('td:eq(4)', row).css('color', 'red'); }",
-          "  if (parseFloat(data[4]) < -20) { $('td:eq(4)', row).css('color', 'green'); }",
->>>>>>> 199504063c151172a454c2b129edb12eeda88552
           "}"
         )
       ),
       rownames = FALSE
     )
   })
-<<<<<<< HEAD
   
   
   output$downloadPMReport <- downloadHandler(
@@ -871,6 +545,4 @@ dashboardAnalyticsServer <- function(input, output, session, tasks) {
   
   
   
-=======
->>>>>>> 199504063c151172a454c2b129edb12eeda88552
 }

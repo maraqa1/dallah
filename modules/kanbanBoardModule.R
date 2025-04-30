@@ -1,13 +1,19 @@
 # ─────────────────────────────────────────────────────────────
 # modules/kanbanBoardModule.R (Optimized for Desktop & Mobile)
 # ─────────────────────────────────────────────────────────────
+<<<<<<< HEAD
 
+=======
+>>>>>>> 199504063c151172a454c2b129edb12eeda88552
 kanbanBoardUI <- function(id) {
   ns <- NS(id)
   fluidPage(
     tags$head(
       tags$style(HTML("
+<<<<<<< HEAD
         /* Column Header Styles */
+=======
+>>>>>>> 199504063c151172a454c2b129edb12eeda88552
         .kanban-header {
           background-color: #2E2D62;
           color: white;
@@ -19,7 +25,10 @@ kanbanBoardUI <- function(id) {
           font-size: 18px;
         }
 
+<<<<<<< HEAD
         /* Task Card Styles */
+=======
+>>>>>>> 199504063c151172a454c2b129edb12eeda88552
         .task-card {
           background-color: #ffffff;
           border-radius: 8px;
@@ -33,7 +42,10 @@ kanbanBoardUI <- function(id) {
           transform: scale(1.02);
         }
 
+<<<<<<< HEAD
         /* Responsive Column Layout */
+=======
+>>>>>>> 199504063c151172a454c2b129edb12eeda88552
         .kanban-column {
           margin-bottom: 20px;
         }
@@ -53,7 +65,10 @@ kanbanBoardUI <- function(id) {
           }
         }
 
+<<<<<<< HEAD
         /* Badge Style */
+=======
+>>>>>>> 199504063c151172a454c2b129edb12eeda88552
         .badge {
           display: inline-block;
           padding: 5px 10px;
@@ -66,6 +81,17 @@ kanbanBoardUI <- function(id) {
       "))
     ),
     
+<<<<<<< HEAD
+=======
+    # ── Filters ─────────────────────────────────────────────
+    fluidRow(
+      column(4, selectInput(ns("waveSelect"), "Filter by Wave", choices = NULL)),
+      column(4, selectInput(ns("assigneeSelect"), "Filter by Assignee", choices = NULL)),
+      column(4, selectInput(ns("programSelect"), "Filter by Program", choices = NULL))
+    ),
+    
+    # ── Columns ─────────────────────────────────────────────
+>>>>>>> 199504063c151172a454c2b129edb12eeda88552
     div(class = "row",
         div(class = "kanban-column",
             div(class = "kanban-header", "Not Started"),
@@ -85,12 +111,40 @@ kanbanBoardUI <- function(id) {
         )
     ),
     
+<<<<<<< HEAD
     div(style = "clear: both;") # To clear floats
+=======
+    div(style = "clear: both;")
+>>>>>>> 199504063c151172a454c2b129edb12eeda88552
   )
 }
 
 kanbanBoardServer <- function(input, output, session, tasks) {
   ns <- session$ns
+<<<<<<< HEAD
+=======
+  
+  # ── Update SelectInput Filter Choices ─────────────────────
+  observe({
+    req(tasks())
+    data <- tasks()
+    
+    updateSelectInput(session, "waveSelect",
+                      choices = c("All", sort(unique(na.omit(data$Wave)))),
+                      selected = "All")
+    
+    updateSelectInput(session, "assigneeSelect",
+                      choices = c("All", sort(unique(na.omit(data$`Assigned To`)))),
+                      selected = "All")
+    
+    updateSelectInput(session, "programSelect",
+                      choices = c("All", sort(unique(na.omit(data$Program)))),
+                      selected = "All")
+  })
+  
+  
+  
+>>>>>>> 199504063c151172a454c2b129edb12eeda88552
   library(dplyr)
   library(lubridate)
   
@@ -116,6 +170,24 @@ kanbanBoardServer <- function(input, output, session, tasks) {
   
   renderTaskColumn <- function(status) {
     data <- tasks()
+<<<<<<< HEAD
+=======
+    
+    
+    # ── Apply Filters ─────────────────────────────────────────
+    if (!is.null(input$waveSelect) && input$waveSelect != "All") {
+      data <- data[data$Wave == input$waveSelect, ]
+    }
+    if (!is.null(input$assigneeSelect) && input$assigneeSelect != "All") {
+      data <- data[data$`Assigned To` == input$assigneeSelect, ]
+    }
+    if (!is.null(input$programSelect) && input$programSelect != "All") {
+      data <- data[data$Program == input$programSelect, ]
+    }
+    
+    
+    
+>>>>>>> 199504063c151172a454c2b129edb12eeda88552
     if (nrow(data) == 0) return(h4("No tasks available."))
     
     data$Status <- normalize_status(data$Status)

@@ -1,0 +1,27 @@
+{
+    "id": "DFFAED01",
+    "path": "C:/R_Home/Dallah_dashboard/modules/dashboardAnalyticsModule.R",
+    "project_path": "modules/dashboardAnalyticsModule.R",
+    "type": "r_source",
+    "hash": "1049818732",
+    "contents": "",
+    "dirty": false,
+    "created": 1745570591728.0,
+    "source_on_save": false,
+    "relative_order": 7,
+    "properties": {
+        "tempName": "Untitled1",
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "513,46",
+        "scrollLine": "503"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1745658137,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1745658137671,
+    "read_only": false,
+    "read_only_alternatives": []
+}
