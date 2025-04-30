@@ -17,6 +17,8 @@ source("modules/taskInputModule.R")
 source("modules/kanbanBoardModule.R")
 source("modules/dashboardAnalyticsModule.R")
 source("modules/steeringWaveGanttModule.R")
+source("modules/themeModule.R")
+
 
 # --- Define UI ---
 ui <- navbarPage(

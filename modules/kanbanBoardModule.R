@@ -1,13 +1,11 @@
 # ─────────────────────────────────────────────────────────────
 # modules/kanbanBoardModule.R (Optimized for Desktop & Mobile)
 # ─────────────────────────────────────────────────────────────
-
 kanbanBoardUI <- function(id) {
   ns <- NS(id)
   fluidPage(
     tags$head(
       tags$style(HTML("
-        /* Column Header Styles */
         .kanban-header {
           background-color: #2E2D62;
           color: white;
@@ -19,7 +17,6 @@ kanbanBoardUI <- function(id) {
           font-size: 18px;
         }
 
-        /* Task Card Styles */
         .task-card {
           background-color: #ffffff;
           border-radius: 8px;
@@ -33,7 +30,6 @@ kanbanBoardUI <- function(id) {
           transform: scale(1.02);
         }
 
-        /* Responsive Column Layout */
         .kanban-column {
           margin-bottom: 20px;
         }
@@ -53,7 +49,6 @@ kanbanBoardUI <- function(id) {
           }
         }
 
-        /* Badge Style */
         .badge {
           display: inline-block;
           padding: 5px 10px;
@@ -66,6 +61,14 @@ kanbanBoardUI <- function(id) {
       "))
     ),
     
+    # ── Filters ─────────────────────────────────────────────
+    fluidRow(
+      column(4, selectInput(ns("waveSelect"), "Filter by Wave", choices = NULL)),
+      column(4, selectInput(ns("assigneeSelect"), "Filter by Assignee", choices = NULL)),
+      column(4, selectInput(ns("programSelect"), "Filter by Program", choices = NULL))
+    ),
+    
+    # ── Columns ─────────────────────────────────────────────
     div(class = "row",
         div(class = "kanban-column",
             div(class = "kanban-header", "Not Started"),
@@ -85,12 +88,33 @@ kanbanBoardUI <- function(id) {
         )
     ),
     
-    div(style = "clear: both;") # To clear floats
+    div(style = "clear: both;")
   )
 }
 
 kanbanBoardServer <- function(input, output, session, tasks) {
   ns <- session$ns
+  
+  # ── Update SelectInput Filter Choices ─────────────────────
+  observe({
+    req(tasks())
+    data <- tasks()
+    
+    updateSelectInput(session, "waveSelect",
+                      choices = c("All", sort(unique(na.omit(data$Wave)))),
+                      selected = "All")
+    
+    updateSelectInput(session, "assigneeSelect",
+                      choices = c("All", sort(unique(na.omit(data$`Assigned To`)))),
+                      selected = "All")
+    
+    updateSelectInput(session, "programSelect",
+                      choices = c("All", sort(unique(na.omit(data$Program)))),
+                      selected = "All")
+  })
+  
+  
+  
   library(dplyr)
   library(lubridate)
   
@@ -116,6 +140,21 @@ kanbanBoardServer <- function(input, output, session, tasks) {
   
   renderTaskColumn <- function(status) {
     data <- tasks()
+    
+    
+    # ── Apply Filters ─────────────────────────────────────────
+    if (!is.null(input$waveSelect) && input$waveSelect != "All") {
+      data <- data[data$Wave == input$waveSelect, ]
+    }
+    if (!is.null(input$assigneeSelect) && input$assigneeSelect != "All") {
+      data <- data[data$`Assigned To` == input$assigneeSelect, ]
+    }
+    if (!is.null(input$programSelect) && input$programSelect != "All") {
+      data <- data[data$Program == input$programSelect, ]
+    }
+    
+    
+    
     if (nrow(data) == 0) return(h4("No tasks available."))
     
     data$Status <- normalize_status(data$Status)
