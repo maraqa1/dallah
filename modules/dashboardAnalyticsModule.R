@@ -34,11 +34,41 @@ dashboardAnalyticsUI <- function(id) {
     # Visual Insights
     h4("Overall Progress for each project", style = "font-weight: bold; text-align: center; margin-bottom: 20px;"),
     
-    fluidRow(
-      column(12,
-             plotOutput(ns("progressByProjectPlot"), height = "500px")
-      )
-    ),
+#    fluidRow(
+#      column(12,
+#             plotOutput(ns("progressByProjectPlot"), height = "500px")
+#      )
+#    ),
+
+####################
+fluidRow(
+  column(
+    width = 2,
+    div(
+      style = "background: #f5f7fa; border-radius: 10px; border: 1px solid #d0dae5; padding: 18px; margin-right: 20px; color: #212529; font-size: 10px;",
+      tags$strong("How to Read This Chart"),
+      tags$ul(
+        tags$li("The % at right is the gap between expected progress (◆) and actual completion today."),
+        tags$li("Positive gap: Behind schedule. Negative gap: Ahead of schedule."),
+        tags$li(tags$span(style = "color:#d7263d;font-weight:bold;", "🚩 Large positive gap (+50% or more): Escalate—far behind schedule.")),
+        tags$li(tags$span(style = "color:#fdae1a;font-weight:bold;", "⚠️ Small positive gap (+10% to +50%): Monitor and request a catch-up plan.")),
+        tags$li(tags$span(style = "color:#28a745;font-weight:bold;", "✅ Near zero gap (–10% to +10%): On track.")),
+        tags$li(tags$span(style = "color:#1695a3;font-weight:bold;", "⏩ Negative gap (–10% or less): Ahead. Confirm, consider resource reallocation."))
+      ),
+      tags$p("◆ = Where project should be today (expected progress).", style="margin-bottom:0;"),
+      tags$p("Gap = Expected – Actual.", style="margin-bottom:0;")
+    )
+  ),
+  column(
+    width = 10,
+    #plotOutput("progressByProjectPlot", height = 600)
+    plotOutput(ns("progressByProjectPlot"), height = "600px"),
+    tags$hr()   # <-- Divider line after the plot
+  )
+),
+
+
+######################
     
     br(),
     br(),
@@ -135,7 +165,7 @@ dashboardAnalyticsServer <- function(input, output, session, tasks) {
   filtered_data <- reactive({
     req(tasks())
     data <- tasks()
-    
+   
     if (!is.null(input$projectFilter) && input$projectFilter != "All") {
       data <- data[data$`short name` == input$projectFilter, ]
     }
@@ -199,9 +229,95 @@ dashboardAnalyticsServer <- function(input, output, session, tasks) {
         h4(paste0(avg, "%"), style = "font-weight:bold;"))
   })
   
-  
   # Plot: Progress by Project
   output$progressByProjectPlot <- renderPlot({
+    data <- filtered_data()
+    req(nrow(data) > 0)
+    
+    data$`% Complete` <- suppressWarnings(readr::parse_number(as.character(data$`% Complete`)))
+    
+    data <- data %>%
+      mutate(
+        Start_Date = as.Date(`Start Date`, tryFormats = c("%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y")),
+        End_Date = as.Date(`End Date`, tryFormats = c("%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y")),
+        Progress = `% Complete` / 100,
+        Status_clean = tolower(trimws(Status)),
+        Duration_days = as.numeric(End_Date - Start_Date),
+        Elapsed_days = as.numeric(Sys.Date() - Start_Date),
+        Expected_Progress = ifelse(Duration_days > 0, Elapsed_days / Duration_days, NA),
+        Schedule_Health = case_when(
+          Status_clean %in% c("completed", "done") | Progress >= 1 ~ "On Track",
+          is.na(Expected_Progress) | is.na(Progress) ~ "Unknown",
+          Expected_Progress - Progress > 0.2 ~ "Delayed",
+          Expected_Progress - Progress > 0 ~ "At Risk",
+          TRUE ~ "On Track"
+        )
+      )
+    
+    project_summary <- data %>%
+      group_by(Wave, `short name`) %>%
+      summarise(
+        avg_progress = mean(`% Complete`, na.rm = TRUE),
+        avg_expected_progress = mean(Expected_Progress * 100, na.rm = TRUE),
+        Schedule_Health = names(which.max(table(Schedule_Health))),
+        .groups = "drop"
+      ) %>%
+      mutate(
+        progress_gap = avg_expected_progress - avg_progress
+      )
+    
+    ggplot(project_summary, aes(x = reorder(`short name`, avg_progress), y = avg_progress, fill = Schedule_Health)) +
+      geom_col(width = 0.6) +
+      geom_point(aes(y = avg_expected_progress), color = "deepskyblue", size = 4, shape = 18) +
+      geom_label(
+        aes(y = 105, 
+            label = ifelse(!is.na(progress_gap), sprintf("%+d%%", round(progress_gap)), ""),
+            fill = case_when(
+              progress_gap > 30  ~ "Delayed",
+              progress_gap > 10  ~ "At Risk",
+              progress_gap > -10 ~ "On Track",
+              TRUE               ~ "Ahead"
+            )
+        ),
+        color = "white", fontface = "bold", size = 3.5, hjust = 0
+      ) +
+      coord_flip() +
+      facet_wrap(~ Wave, scales = "free_y") +
+      scale_fill_manual(values = c(
+        "On Track" = "forestgreen",
+        "At Risk" = "orange",
+        "Delayed" = "firebrick",
+        "Unknown" = "gray",
+        "Ahead" = "deepskyblue"
+      ), guide = "none") +
+      ylim(0, 110) +    # Clamp axis at 0-110%
+      labs(
+        title = "Project Completion Progress vs. Expected (with Gap)",
+        x = "Project",
+        y = "Average % Complete",
+        fill = "Schedule Health",
+        caption = "Badge = schedule gap (expected – actual): red = delayed, orange = at risk, green = on track, blue = ahead."
+      ) +
+      theme_minimal(base_size = 13) +
+      theme(
+        plot.title = element_text(face = "bold", hjust = 0.5),
+        axis.text.y = element_text(size = 9, face = "bold"),
+        strip.text = element_text(face = "bold"),
+        legend.position = "bottom",
+        panel.grid.major.y = element_blank(),
+        panel.grid.major.x = element_line(color = "grey90")
+      ) +
+      theme_dashboard()
+    
+  }, height = function() {
+    num_projects <- nrow(filtered_data())
+    height <- min(600, 100 + num_projects * 20)
+    max(height, 300)
+  })
+  
+  
+  # Plot: Progress by Project
+  output$progressByProjectPlot_1 <- renderPlot({
     data <- filtered_data()
     req(nrow(data) > 0)
     
