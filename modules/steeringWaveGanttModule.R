@@ -82,8 +82,9 @@ steeringWaveGanttServer <- function(input, output, session, tasks) {
     updateSelectInput(session, "waveSelect", choices = c("All", waves), selected = "All")
   })
   
+  
   # Dynamically calculate plot height based on data volume
-  reactiveHeight <- reactive({
+  reactiveHeight_1 <- reactive({
     req(tasks())
     data <- tasks()
     
@@ -113,6 +114,120 @@ steeringWaveGanttServer <- function(input, output, session, tasks) {
     height <- n_facets * base_height + max_rows * per_row_height
     max(height, 500)
   })
+  
+  
+  reactiveHeight_2 <- reactive({
+    req(tasks())
+    data <- tasks()
+    
+    # Wave filter
+    if (!is.null(input$waveSelect) && input$waveSelect != "All") {
+      data <- data[data$Wave == input$waveSelect, ]
+    }
+    
+    # Remove blank labels
+    data <- data[!is.na(data$`short name`), ]
+    
+    facet_col <- input$facetBy
+    if (is.null(facet_col) || !(facet_col %in% names(data))) {
+      facet_col <- "Wave"
+    }
+    
+    # Count rows per facet
+    rows_per_facet <- data %>%
+      group_by(.data[[facet_col]]) %>%
+      summarize(n = n(), .groups = "drop") %>%
+      pull(n)
+    
+    n_facets <- length(rows_per_facet)
+    max_rows <- max(rows_per_facet, na.rm = TRUE)
+    
+    base_height <- 100
+    row_height <- 35  # Raise back up from 22 to 35 for label room
+    
+    height <- n_facets * base_height + max_rows * row_height
+    height <- max(min(height, 2500), 2000)  # allow taller height
+    return(height)
+  })
+  
+  
+  reactiveHeight_3 <- reactive({
+    req(tasks())
+    data <- tasks()
+    
+    # Apply wave filter
+    if (!is.null(input$waveSelect) && input$waveSelect != "All") {
+      data <- data[data$Wave == input$waveSelect, ]
+    }
+    
+    data <- data[!is.na(data$`short name`), ]
+    
+    facet_col <- input$facetBy
+    if (is.null(facet_col) || !(facet_col %in% names(data))) {
+      facet_col <- "Wave"
+    }
+    
+    # Count total visible items across all facets
+    total_items <- data %>%
+      group_by(.data[[facet_col]]) %>%
+      summarize(n_rows = n(), .groups = "drop") %>%
+      pull(n_rows) %>%
+      sum()
+    
+    base_buffer <- 100   # e.g. for headers/margins
+    row_height <- 35     # height per item
+    
+    height <- total_items * row_height + base_buffer
+    height <- max(min(height, 2500), 800)  # Clamp
+    
+    return(height)
+  })
+  
+  
+  reactiveHeight <- reactive({
+    req(tasks())
+    data <- tasks()
+    
+    # Filter by selected wave
+    if (!is.null(input$waveSelect) && input$waveSelect != "All") {
+      data <- data[data$Wave == input$waveSelect, ]
+    }
+    
+    data <- data[!is.na(data$`short name`), ]
+    
+    # Get selected facet column
+    facet_col <- input$facetBy
+    if (is.null(facet_col) || !(facet_col %in% names(data))) {
+      facet_col <- "Wave"
+    }
+    
+    # Compute max rows per facet (this is what matters most visually)
+    max_rows_per_facet <- data %>%
+      group_by(.data[[facet_col]]) %>%
+      summarize(n = n(), .groups = "drop") %>%
+      pull(n) %>%
+      max(na.rm = TRUE)
+    
+    # Count number of facets
+    n_facets <- data %>%
+      pull(.data[[facet_col]]) %>%
+      unique() %>%
+      length()
+    
+    # Define height model
+    row_height <- 20     # height per initiative (per row)
+    facet_header_height <- 90  # for strip/facet title
+    buffer <- 100        # top/bottom margins etc.
+    
+    height <- (max_rows_per_facet * row_height * n_facets) + (n_facets * facet_header_height) + buffer
+    
+    # Clamp it
+    height <- max(min(height, 3000), 800)
+    
+    return(height)
+  })
+  
+  
   
   # Render Gantt Plot
   output$waveGanttPlot <- renderPlot({
