@@ -230,7 +230,7 @@ steeringWaveGanttServer <- function(input, output, session, tasks) {
   
   
   # Render Gantt Plot
-  output$waveGanttPlot <- renderPlot({
+  output$waveGanttPlot_1 <- renderPlot({
     req(tasks())
     data <- tasks()
     
@@ -326,4 +326,131 @@ steeringWaveGanttServer <- function(input, output, session, tasks) {
       ) +
       coord_cartesian(clip = "off")
   }, height = reactiveHeight)
+  
+  output$waveGanttPlot <- renderPlot({
+    req(tasks())
+    data <- tasks()
+    
+    if (!is.null(input$waveSelect) && input$waveSelect != "All") {
+      data <- data[data$Wave == input$waveSelect, ]
+    }
+    
+    req(nrow(data) > 0)
+    
+    facet_var <- input$facetBy
+    if (is.null(facet_var) || !(facet_var %in% names(data))) {
+      facet_var <- "Wave"
+    }
+    
+    # Clean & prep
+    phase_levels <- c("Initiation", "Planning", "Assessment", "Procurement",
+                      "Implementation", "Closure", "Completed", "Not Started")
+    phase_colors <- c(
+      "Initiation" = "pink", "Planning" = "blue", "Assessment" = "purple",
+      "Procurement" = "#ca7a13", "Implementation" = "orange",
+      "Closure" = "#a5e914", "Completed" = "green", "Not Started" = "gray"
+    )
+    # Updated health mapping for schedule status
+    health_colors <- c(
+      "On Track" = "forestgreen",
+      "At Risk"  = "orange",
+      "Delayed"  = "firebrick",
+      "Unknown"  = "gray60"
+    )
+    
+    # Calculate health dynamically
+    data <- data %>%
+      rename(Start = `Start Date`, End = `End Date`) %>%
+      mutate(
+        Start = as.Date(Start),
+        End = as.Date(End),
+        `% Complete` = suppressWarnings(readr::parse_number(as.character(`% Complete`))),
+        Progress = ifelse(`% Complete` > 1, `% Complete` / 100, `% Complete`),
+        Duration_days = as.numeric(End - Start),
+        Elapsed_days = as.numeric(pmin(Sys.Date(), End) - Start),
+        Expected_Progress = ifelse(Duration_days > 0, pmax(0, pmin(1, Elapsed_days / Duration_days)), NA),
+        Status_clean = tolower(trimws(Status)),
+        # SCHEDULE HEALTH LOGIC:
+        Schedule_Health = case_when(
+          Status_clean %in% c("completed", "done") | Progress >= 1 ~ "On Track",
+          is.na(Expected_Progress) | is.na(Progress) ~ "Unknown",
+          Expected_Progress - Progress > 0.2 ~ "Delayed",
+          Expected_Progress - Progress > 0 ~ "At Risk",
+          TRUE ~ "On Track"
+        ),
+        Task_Name = stringr::str_wrap(`short name`, 25),
+        Active_Phase = case_when(
+          `Active Phase` == "Assesment" ~ "Assessment",
+          TRUE ~ `Active Phase`
+        ),
+        Active_Phase = factor(Active_Phase, levels = phase_levels),
+        Progress_pct = round(Progress * 100),
+        Health_Icon = case_when(
+          Schedule_Health == "On Track" ~ "🟢",
+          Schedule_Health == "At Risk" ~ "🟠",
+          Schedule_Health == "Delayed" ~ "🔴",
+          TRUE ~ "⚫"
+        ),
+        Badge_Label = paste(Health_Icon, Progress_pct, "%", "|", Active_Phase)
+      ) %>%
+      filter(!is.na(Start) & !is.na(End)) %>%
+      arrange(Start)
+    
+    # Average progress per facet
+    facet_summary <- data %>%
+      group_by(GroupValue = .data[[facet_var]]) %>%
+      summarize(AvgProgress = round(mean(Progress_pct, na.rm = TRUE))) %>%
+      mutate(facet_label = paste0(GroupValue, " (", AvgProgress, "%)"))
+    
+    data <- data %>%
+      left_join(facet_summary, by = setNames("GroupValue", facet_var))
+    
+    quarter_labels <- function(x) paste0("Q", lubridate::quarter(x), " ", lubridate::year(x))
+    
+    ggplot(data, aes(
+      x = Start, xend = End, y = reorder(Task_Name, Start),
+      yend = Task_Name, color = Schedule_Health
+    )) +
+      geom_segment(position = position_nudge(y = 0.1), size = 4) +
+      geom_label(
+        aes(x = End + 10, label = Badge_Label, fill = Active_Phase),
+        color = "white", fontface = "bold", size = 3.5, hjust = 0, label.size = 0.1
+      ) +
+      geom_vline(xintercept = as.numeric(Sys.Date()), linetype = "dashed", color = "red", linewidth = 1) +
+      annotate("text", x = Sys.Date(), y = -Inf, label = "Today", vjust = -1, color = "red", fontface = "bold") +
+      scale_color_manual(values = health_colors, drop = FALSE) +
+      scale_fill_manual(values = phase_colors) +
+      scale_x_date(
+        breaks = seq(min(data$Start), max(data$End), by = "3 months"),
+        labels = quarter_labels,
+        expand = expansion(mult = c(0, 0.1))
+      ) +
+      labs(
+        title = paste("Gantt Chart by", facet_var),
+        x = "Date", y = "Initiative", color = "Schedule Health", fill = "Active Phase"
+      ) +
+      facet_wrap(vars(facet_label), scales = "free_y", ncol = ifelse(facet_var %in% c("Wave", "Program"), 1, 2)) +
+      theme_minimal(base_size = 13) +
+      theme(
+        plot.background = element_rect(fill = "#f4f4f4", color = NA),
+        panel.background = element_rect(fill = "white", color = NA),
+        strip.background = element_rect(fill = "#003366"),
+        strip.text = element_text(color = "white", face = "bold", size = 14),
+        panel.grid.major.y = element_blank(),
+        panel.grid.major.x = element_line(color = "gray85"),
+        axis.text.y = element_text(face = "bold", size = 10),
+        axis.text.x = element_text(angle = 45, hjust = 1, size = 10),
+        axis.title = element_text(color = "#222222"),
+        plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
+        legend.title = element_text(face = "bold"),
+        legend.text = element_text(),
+        legend.background = element_rect(fill = "#f4f4f4", color = NA),
+        plot.margin = margin(40, 40, 40, 40, "pt")
+      ) +
+      coord_cartesian(clip = "off")
+  }, height = reactiveHeight)
+  
 }
+
+
+
