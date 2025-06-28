@@ -2,16 +2,27 @@ dashboardAnalyticsUI <- function(id) {
   ns <- NS(id)
   
   fluidPage(
+    # --- PROFESSIONAL TITLE SECTION ---
+    div(
+      style = "margin-bottom:18px;",
+      tags$h2(
+        "Portfolio Project Progress Dashboard",
+        style = "font-weight:800; color:#1A237E; letter-spacing:1px; margin-bottom:3px; margin-top:8px; line-height:1.1; font-family: 'Segoe UI', Arial, sans-serif;"
+      ),
+      tags$div(
+        "Track real-time progress, risk, and schedule health across all key projects.",
+        style = "font-size:18px; color:#555; font-weight:400; margin-bottom:3px; margin-left:2px; font-family: 'Segoe UI', Arial, sans-serif;"
+      ),
+      tags$hr(style = "border-top: 3px solid #1A237E; width: 90%; margin-top:6px; margin-bottom:16px;")
+    ),
+    
     tags$style(HTML("
       .value-box-small h4 { font-size: 20px; margin: 5px 0; }
       .value-box-small p { font-size: 12px; margin: 0; }
       .section-divider { border-top: 3px solid #007bff; margin-top: 30px; margin-bottom: 30px; }
     ")),
     
-    h3("Dashboard Analytics", style = "font-weight: bold; text-align: center; margin-bottom: 20px;"),
-    div(class = "section-divider"),
-    
-    # Filters
+    # FILTERS
     fluidRow(
       column(6, selectInput(ns("projectFilter"), "Filter by Project:", choices = NULL, selected = "All")),
       column(6, selectInput(ns("assigneeFilter"), "Filter by Assignee:", choices = NULL, selected = "All"))
@@ -19,7 +30,7 @@ dashboardAnalyticsUI <- function(id) {
     
     div(class = "section-divider"),
     
-    # Value Boxes - Smaller
+    # VALUE BOXES
     fluidRow(
       column(2, div(class = "value-box-small", uiOutput(ns("totalTasksBox")))),
       column(2, div(class = "value-box-small", uiOutput(ns("blockedTasksBox")))),
@@ -31,65 +42,49 @@ dashboardAnalyticsUI <- function(id) {
     
     div(class = "section-divider"),
     
-    # Visual Insights
-    h4("Overall Progress for each project", style = "font-weight: bold; text-align: center; margin-bottom: 20px;"),
-    
-#    fluidRow(
-#      column(12,
-#             plotOutput(ns("progressByProjectPlot"), height = "500px")
-#      )
-#    ),
-
-####################
-fluidRow(
-  column(
-    width = 2,
-    div(
-      style = "background: #f5f7fa; border-radius: 10px; border: 1px solid #d0dae5; padding: 18px; margin-right: 20px; color: #212529; font-size: 10px;",
-      tags$strong("How to Read This Chart"),
-      tags$ul(
-        tags$li("The % at right is the gap between expected progress (◆) and actual completion today."),
-        tags$li("Positive gap: Behind schedule. Negative gap: Ahead of schedule."),
-        tags$li(tags$span(style = "color:#d7263d;font-weight:bold;", "🚩 Large positive gap (+50% or more): Escalate—far behind schedule.")),
-        tags$li(tags$span(style = "color:#fdae1a;font-weight:bold;", "⚠️ Small positive gap (+10% to +50%): Monitor and request a catch-up plan.")),
-        tags$li(tags$span(style = "color:#28a745;font-weight:bold;", "✅ Near zero gap (–10% to +10%): On track.")),
-        tags$li(tags$span(style = "color:#1695a3;font-weight:bold;", "⏩ Negative gap (–10% or less): Ahead. Confirm, consider resource reallocation."))
+    # MAIN PROGRESS PLOT & GUIDANCE
+    h4("Overall Progress for Each Project", style = "font-weight: bold; text-align: center; margin-bottom: 20px;"),
+    fluidRow(
+      column(
+        width = 2,
+        div(
+          style = "background: #f5f7fa; border-radius: 10px; border: 1px solid #d0dae5; padding: 18px; margin-right: 20px; color: #212529; font-size: 12px;",
+          tags$strong("How to Read This Chart"),
+          tags$ul(
+            tags$li("The % at right is the gap between expected progress (◆) and actual completion today."),
+            tags$li("Positive gap: Behind schedule. Negative gap: Ahead of schedule."),
+            tags$li(tags$span(style = "color:#d7263d;font-weight:bold;", "🚩 Large positive gap (+50% or more): Escalate—far behind schedule.")),
+            tags$li(tags$span(style = "color:#fdae1a;font-weight:bold;", "⚠️ Small positive gap (+10% to +50%): Monitor and request a catch-up plan.")),
+            tags$li(tags$span(style = "color:#28a745;font-weight:bold;", "✅ Near zero gap (–10% to +10%): On track.")),
+            tags$li(tags$span(style = "color:#1695a3;font-weight:bold;", "⏩ Negative gap (–10% or less): Ahead. Confirm, consider resource reallocation."))
+          ),
+          tags$p("◆ = Where project should be today (expected progress).", style="margin-bottom:0;"),
+          tags$p("Gap = Expected – Actual.", style="margin-bottom:0;")
+        )
       ),
-      tags$p("◆ = Where project should be today (expected progress).", style="margin-bottom:0;"),
-      tags$p("Gap = Expected – Actual.", style="margin-bottom:0;")
-    )
-  ),
-  column(
-    width = 10,
-    #plotOutput("progressByProjectPlot", height = 600)
-    plotOutput(ns("progressByProjectPlot"), height = "600px"),
-    tags$hr()   # <-- Divider line after the plot
-  )
-),
-
-
-######################
-    
-    br(),
-    br(),
+      column(
+        width = 10,
+        plotOutput(ns("progressByProjectPlot"), height = "600px"),
+        tags$hr()
+      )
+    ),
     
     div(class = "section-divider"),
     
-    # Visual Insights
-    h4("Progress for each PM", style = "font-weight: bold; text-align: center; margin-bottom: 20px;"),
-    
+    # PROGRESS BY PM
+    h4("Progress for Each Project Manager", style = "font-weight: bold; text-align: center; margin-bottom: 20px;"),
     fluidRow(
       column(12,
              div(
                style = "overflow-x: auto; overflow-y: auto; max-height: 800px; margin-bottom: 40px;",
                plotOutput(ns("riskLevelsByAssigneePlot"), height = "auto")
              )
-             
       )
     ),
     
     div(class = "section-divider"),
     
+    # DOWNLOAD BUTTON
     fluidRow(
       column(12,
              downloadButton(ns("downloadPMReport"), "Download PM Recommendations", class = "btn btn-primary", style = "margin-bottom:20px;")
@@ -98,28 +93,28 @@ fluidRow(
     
     hr(style = "border-top: 3px solid #003366; margin-top: 40px;"),
     
-    # PM Recommendation Report Section
+    # STYLED TABLES
     tags$style(HTML("
-  table.dataTable {
-    font-size: 12px;
-    font-family: 'Segoe UI', sans-serif;
-  }
-  table.dataTable tbody td {
-    padding: 6px 10px;
-  }
-  table.dataTable thead th {
-    background-color: #003366;
-    color: white;
-    font-weight: bold;
-    text-align: center;
-  }
-  table.dataTable tbody tr:nth-child(odd) {
-    background-color: #f9f9f9;
-  }
-  table.dataTable tbody tr:nth-child(even) {
-    background-color: #ffffff;
-  }
-")),
+      table.dataTable {
+        font-size: 12px;
+        font-family: 'Segoe UI', sans-serif;
+      }
+      table.dataTable tbody td {
+        padding: 6px 10px;
+      }
+      table.dataTable thead th {
+        background-color: #003366;
+        color: white;
+        font-weight: bold;
+        text-align: center;
+      }
+      table.dataTable tbody tr:nth-child(odd) {
+        background-color: #f9f9f9;
+      }
+      table.dataTable tbody tr:nth-child(even) {
+        background-color: #ffffff;
+      }
+    ")),
     
     h4("PM Recommendation Report", style = "font-weight: bold; text-align: center; margin-top: 20px;"),
     fluidRow(
@@ -129,9 +124,9 @@ fluidRow(
              )
       )
     )
-    
   )
 }
+
 
 dashboardAnalyticsServer <- function(input, output, session, tasks) {
   ns <- session$ns
@@ -271,7 +266,7 @@ dashboardAnalyticsServer <- function(input, output, session, tasks) {
       geom_point(aes(y = avg_expected_progress), color = "deepskyblue", size = 4, shape = 18) +
       geom_label(
         aes(y = 105, 
-            label = ifelse(!is.na(progress_gap), sprintf("%+d%%", round(progress_gap)), ""),
+            label = ifelse(!is.na(progress_gap), sprintf("%+d%%  ", round(progress_gap)), ""),
             fill = case_when(
               progress_gap > 30  ~ "Delayed",
               progress_gap > 10  ~ "At Risk",
