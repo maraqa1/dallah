@@ -274,7 +274,7 @@ dashboardAnalyticsServer <- function(input, output, session, tasks) {
               TRUE               ~ "Ahead"
             )
         ),
-        color = "white", fontface = "bold", size = 3.5, hjust = 0
+        color = "white", fontface = "bold", size = 3.1, hjust = 0
       ) +
       coord_flip() +
       facet_wrap(~ Wave, scales = "free_y") +
