@@ -123,6 +123,8 @@ taskInputServer <- function(id, task_data) {
     observe({
       df <- NULL
       tryCatch({
+        
+       
         # --- Try Smartsheet ---
         api_key <- "qmX7yeYQbYEoTgSX5s7vusvsWMM916URXcNUN"
         sheet_id <- "951355355123588"
@@ -167,7 +169,7 @@ taskInputServer <- function(id, task_data) {
             `Active Phase`         = as.character(df_raw$Active.Phase),
             `short name`           = as.character(df_raw$short.name),
             `tier`                 = as.character(df_raw$tier),
-            `Health2`              = as.character(df_raw$Health2),
+            `New Progress Health`  = as.character(df_raw$New.Progress.Health),
             `Previous Status`      = as.numeric(df_raw$Previous.Status)
           )
           return(df_clean)
@@ -177,7 +179,7 @@ taskInputServer <- function(id, task_data) {
         
         df <- build_df_clean_smartsheet(df)
         
-        
+
         if ("Task" %in% colnames(df)) {
           df <- df %>% dplyr::rename(Primary = Task)
         }
@@ -188,6 +190,7 @@ taskInputServer <- function(id, task_data) {
           df$`%_Complete` <- readr::parse_number(as.character(df$`%_Complete`)) / 1
           df$Progress <- df$`%_Complete`
         }
+        
         
         task_data(df)
         showNotification("✅ Auto-loaded from Smartsheet successfully!", type = "message")
@@ -336,7 +339,7 @@ taskInputServer <- function(id, task_data) {
         })
       }
       
-      browser()
+    
       # Final validation
       if (!is.null(df)) {
         missing_cols <- setdiff(required_cols, colnames(df))
