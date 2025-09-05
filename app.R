@@ -13,6 +13,8 @@ library(openxlsx)
 library(bslib)        # Ensure bslib loaded for mobile theming
 library(shinyBS)
 library(ggtext) 
+library(jsonlite)
+library(lubridate)
 
 # --- Load Modules ---
 source("modules/taskInputModule.R")
